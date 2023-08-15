@@ -21,9 +21,10 @@ PATH_TERM="$PATH_BSPWM/alacritty"
 PATH_PBAR="$PATH_BSPWM/themes/$THEME/polybar"
 PATH_ROFI="$PATH_BSPWM/themes/$THEME/rofi"
 
-## Wallpaper ---------------------------------
-apply_wallpaper() {
+## Wallpapers ---------------------------------
+apply_wallpapers() {
 	feh --bg-fill "$wallpaper"
+	betterlockscreen -u $lockscreen_wallpaper
 }
 
 ## Polybar -----------------------------------
@@ -267,7 +268,7 @@ notify_user() {
 ## Execute Script ---------------------------
 notify_user
 create_file
-apply_wallpaper
+apply_wallpapers
 apply_polybar
 apply_rofi
 apply_netmenu

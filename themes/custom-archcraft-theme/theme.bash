@@ -28,8 +28,9 @@ accent='#F5E0DC'
 light_value='0.05'
 dark_value='0.30'
 
-# Wallpaper
+# Wallpapers
 wallpaper="$HOME/.local/share/wallpapers/catppuccin-mandelbrot-gap-rosewater.png"
+lockscreen_wallpaper="$HOME/.local/share/wallpapers/catppuccin-error.jpg"
 
 # Polybar
 polybar_font='Iosevka Nerd Font:size=10;3'
