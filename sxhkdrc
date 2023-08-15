@@ -96,6 +96,8 @@ XF86Audio{Next,Prev,Play,Stop}
 	# mpc {next,prev,toggle,stop}
 alt + {F6,F7,F8}
 	playerctl {play-pause,previous,next}
+alt + {F9,F10}
+	bspvolume{ --toggle, --toggle-mic}
 
 ##---------- Bspwm ----------##
 
