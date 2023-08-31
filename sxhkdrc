@@ -99,6 +99,10 @@ alt + {F6,F7,F8}
 alt + {F9,F10}
 	bspvolume{ --toggle, --toggle-mic}
 
+# Gummy
+alt + {F11,F12}
+	gummy { start, stop }
+
 ##---------- Bspwm ----------##
 
 # Hide/Unhide Window
