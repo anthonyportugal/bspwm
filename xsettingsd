@@ -1,6 +1,6 @@
 ## Copyright (C) 2020-2023 Aditya Shakya <adi1090x@gmail.com>
 
-Net/ThemeName "Catppuccin-Mocha-Standard-Rosewater-Dark"
+Net/ThemeName "Catppuccin-Mocha-Standard-Rosewater-dark"
 Net/IconThemeName "Papirus-Dark"
 Gtk/CursorThemeName "Catppuccin-Mocha-Rosewater-Cursors"
 Net/EnableEventSounds "0"
