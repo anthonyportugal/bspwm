@@ -20,6 +20,7 @@ PATH_BSPWM="$PATH_CONF/bspwm"
 PATH_TERM="$PATH_BSPWM/alacritty"
 PATH_PBAR="$PATH_BSPWM/themes/$THEME/polybar"
 PATH_ROFI="$PATH_BSPWM/themes/$THEME/rofi"
+PATH_MIMEAPPS="$PATH_BSPWM/themes/$THEME/mimeapps.list"
 
 ## Wallpapers ---------------------------------
 apply_wallpapers() {
@@ -251,6 +252,11 @@ apply_bspwm() {
 	bspc wm -r
 }
 
+# modify mimeapps
+apply_mimeapps() {
+  cat "$PATH_MIMEAPPS" > "$HOME/.config/mimeapps.list"
+}
+
 # Create Theme File -------------------------
 create_file() {
 	theme_file="$PATH_BSPWM/themes/.current"
@@ -277,4 +283,5 @@ apply_geany
 apply_appearance
 apply_dunst
 apply_compositor
+apply_mimeapps
 apply_bspwm
