@@ -31,15 +31,45 @@ BSPWM_SRATIO='0.50'
 
 ## Configurations --------------------------------------------#
 
-## Manager Workspaces
-workspaces() {
-	name=1
-	for monitor in `bspc query -M`; do
-		bspc monitor ${monitor} -n "$name" -d '' '' '' '' '' '' '' ''
-		let name++
+## monitors
+MONITORS=$(xrandr -q | grep -w 'connected' | cut -d' ' -f1)
+MONITORS_COUNT=$(echo "$MONITORS" | wc -l)
+
+## workspaces
+default_workspaces() {
+  for monitor in $MONITORS; do
+		bspc monitor "$monitor" -d '' '' '' '' '' '' '' ''
 	done
 }
-workspaces
+
+dual_monitors_workspaces() {
+	# change these values according to your system
+	MONITOR_1="DP-0"
+	MONITOR_2="HDMI-0"
+
+	bspc monitor "$MONITOR_1" -d '' '' '' ''
+	bspc monitor "$MONITOR_2" -d '' '' '' ''
+	bspc wm -O "$MONITOR_1" "$MONITOR_2"
+}
+
+triple_monitors_workpsaces() {
+  MONITOR_1="DP-0"
+	MONITOR_2="HDMI-0"
+	MONITOR_3="HDMI-1"
+	bspc monitor "$MONITOR_1" -d '' ''
+	bspc monitor "$MONITOR_2" -d '' '' ''
+	bspc monitor "$MONITOR_3" -d '' '' ''
+	bspc wm -O "$MONITOR_2" "$MONITOR_1" "$MONITOR_3"
+}
+
+if [ "$MONITORS_COUNT" -eq 2 ]; then
+  dual_monitors_workspaces
+elif [ "$MONITORS_COUNT" -eq 3 ]; then
+  triple_monitors_workpsaces
+else
+  default_workspaces
+fi
+
 
 ## Apply bspwm configurations
 bspc config border_width "$BSPWM_BORDER"
