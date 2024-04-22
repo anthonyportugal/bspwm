@@ -262,7 +262,7 @@ notify_user() {
 ## Execute Script ---------------------------
 notify_user
 create_file
-apply_wallpaper
+apply_wallpapers
 apply_polybar
 apply_rofi
 apply_netmenu
