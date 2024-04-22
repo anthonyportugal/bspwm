@@ -6,7 +6,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 SFILE="$DIR/system.ini"
 RFILE="$DIR/.system"
-STYLE="custom-archcraft-theme"
+STYLE="catppuccin"
 
 ## Get system variable values for various modules
 get_values() {
