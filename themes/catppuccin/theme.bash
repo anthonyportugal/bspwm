@@ -48,7 +48,7 @@ geany_font='JetBrains Mono 10'
 gtk_font='Noto Sans 9'
 gtk_theme='Catppuccin-Mocha-Standard-Rosewater-Dark'
 icon_theme='Papirus-Dark'
-cursor_theme='Catppuccin-Mocha-Rosewater-Cursors'
+cursor_theme='catppuccin-mocha-rosewater-cursors'
 
 # Dunst
 dunst_width='300'

@@ -2,7 +2,7 @@
 
 Net/ThemeName "Catppuccin-Mocha-Standard-Rosewater-Dark"
 Net/IconThemeName "Papirus-Dark"
-Gtk/CursorThemeName "Catppuccin-Mocha-Rosewater-Cursors"
+Gtk/CursorThemeName "catppuccin-mocha-rosewater-cursors"
 Net/EnableEventSounds "0"
 Net/EnableInputFeedbackSounds "0"
 Xft/DPI "-1"
