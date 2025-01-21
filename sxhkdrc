@@ -124,8 +124,10 @@ ctrl + alt + Escape
     xkill
 
 # Quit/Restart bspwm
-ctrl + shift + {q,r}
-	bspc {quit,wm -r}
+# ctrl + shift + {q,r}
+# 	bspc {quit,wm -r}
+ctrl + shift + q
+	bspc quit
 	
 # Reload Keybindings
 super + Escape
