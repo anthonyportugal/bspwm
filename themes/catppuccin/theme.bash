@@ -21,12 +21,12 @@ color13='#F5C2E7'
 color14='#94E2D5'
 color15='#A6ADC8'
 
-accent='#F5E0DC'
+accent='#F5C2E7'
 light_value='0.05'
 dark_value='0.30'
 
 # Wallpaper
-wallpaper="$HOME/.local/share/wallpapers/catppuccin-mandelbrot-gap-rosewater.png"
+wallpaper="$HOME/.local/share/wallpapers/rose-dark.png"
 lockscreen_wallpaper="$HOME/.local/share/wallpapers/catppuccin-error.jpg"
 
 # Polybar
@@ -46,9 +46,9 @@ geany_font='JetBrains Mono 10'
 
 # Appearance
 gtk_font='Noto Sans 9'
-gtk_theme='Catppuccin-Mocha-Standard-Rosewater-Dark'
+gtk_theme='Catppuccin-Mocha-Standard-Pink-Dark'
 icon_theme='Papirus-Dark'
-cursor_theme='catppuccin-mocha-rosewater-cursors'
+cursor_theme='catppuccin-mocha-pink-cursors'
 
 # Dunst
 dunst_width='300'
@@ -62,10 +62,10 @@ dunst_separator='2'
 # Picom
 picom_backend='glx'
 picom_corner='0'
-picom_shadow_r='14'
-picom_shadow_o='0.30'
-picom_shadow_x='-12'
-picom_shadow_y='-12'
+picom_shadow_r='20'
+picom_shadow_o='0.60'
+picom_shadow_x='-20'
+picom_shadow_y='-20'
 picom_blur_method='none'
 picom_blur_strength='0'
 
