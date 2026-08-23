@@ -1,0 +1,90 @@
+/**
+ * Catppuccin power menu for the standalone bspwm session.
+ * Uses glyphs from Symbols Nerd Font Mono instead of Archcraft's Feather font.
+ **/
+
+configuration {
+    show-icons: false;
+}
+
+@import "shared/colors.rasi"
+@import "shared/fonts.rasi"
+
+window {
+    transparency: "real";
+    location: center;
+    anchor: center;
+    width: 660px;
+    border: 0px;
+    border-radius: 10px;
+    background-color: @background;
+}
+
+mainbox {
+    spacing: 14px;
+    padding: 28px;
+    background-color: transparent;
+    children: [ inputbar, message, listview ];
+}
+
+inputbar {
+    padding: 0px;
+    background-color: transparent;
+    text-color: @foreground;
+    children: [ prompt ];
+}
+
+prompt {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background-color: @selected;
+    text-color: @background;
+}
+
+message {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background-color: @background-alt;
+    text-color: @foreground;
+}
+
+textbox {
+    background-color: transparent;
+    text-color: inherit;
+    horizontal-align: 0.5;
+}
+
+listview {
+    columns: 6;
+    lines: 1;
+    cycle: true;
+    dynamic: false;
+    scrollbar: false;
+    layout: vertical;
+    spacing: 10px;
+    background-color: transparent;
+}
+
+element {
+    children: [ element-text ];
+    padding: 18px 12px;
+    border-radius: 10px;
+    background-color: @background-alt;
+    text-color: @foreground;
+    cursor: pointer;
+}
+
+element selected.normal {
+    background-color: @selected;
+    text-color: @background;
+}
+
+element-text {
+    font: "Symbols Nerd Font Mono 20";
+    expand: true;
+    padding: 0px 0px 3px 0px;
+    background-color: transparent;
+    text-color: inherit;
+    horizontal-align: 0.5;
+    vertical-align: 0.5;
+}

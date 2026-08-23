@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+command_name=${0##*/}
+
+record() {
+  if (( $# > 0 )); then
+    printf '%s %s\n' "$command_name" "$*" >> "${BSPWM_TEST_LOG:?}"
+  else
+    printf '%s\n' "$command_name" >> "${BSPWM_TEST_LOG:?}"
+  fi
+}
+
+case "$command_name" in
+  bspc)
+    if [[ "$*" == "query -M --names" ]]; then
+      read -r -a test_monitors <<< "${BSPWM_TEST_MONITORS:-MONITOR_A}"
+      printf '%s\n' "${test_monitors[@]}"
+    elif [[ "$*" == "query -N -n focused" ]]; then
+      printf '0x00123456\n'
+    else
+      record "$@"
+    fi
+    ;;
+  pgrep)
+    exit 1
+    ;;
+  playerctl)
+    if [[ " $* " == *" status "* ]]; then
+      printf 'Playing\n'
+    elif [[ " $* " == *" metadata "* ]]; then
+      printf 'Artist — Track\n'
+    else
+      record "$@"
+    fi
+    ;;
+  polybar)
+    if [[ "$*" == "--list-monitors" ]]; then
+      if [[ "${BSPWM_TEST_MONITOR_DELAY:-0}" != 0 ]]; then
+        sleep "$BSPWM_TEST_MONITOR_DELAY"
+      fi
+      read -r -a test_monitors <<< "${BSPWM_TEST_MONITORS:-MONITOR_A}"
+      for test_monitor in "${test_monitors[@]}"; do
+        printf '%s: 1920x1080+0+0\n' "$test_monitor"
+      done
+      exit 0
+    fi
+
+    printf 'polybar monitor=%s center=%s modules=%s\n' \
+      "${MONITOR:-auto}" "${BSPWM_POLYBAR_CENTER:-}" \
+      "${BSPWM_POLYBAR_RIGHT:-}" >> "${BSPWM_TEST_LOG:?}"
+    if [[ "${BSPWM_TEST_POLYBAR_FAIL_AUTO:-0}" == 1 ]] &&
+       [[ "${BSPWM_POLYBAR_RIGHT:-}" != 'memory filesystem xkeyboard' ]]; then
+      exit 1
+    fi
+    if [[ "${BSPWM_TEST_POLYBAR_FAIL_AUTO:-0}" == 1 ]]; then
+      printf '%s\n' "$$" >> "${BSPWM_TEST_POLYBAR_PIDS:?}"
+      trap 'exit 0' TERM INT
+      sleep 5 &
+      wait $!
+    fi
+    ;;
+  bluetoothctl)
+    case "${1-}" in
+      show)
+        printf 'Controller 00:00:00:00:00:00\n\tPowered: yes\n'
+        ;;
+      devices)
+        printf 'Device 11:22:33:44:55:66 Headphones\n'
+        ;;
+      list)
+        if [[ "${BSPWM_TEST_BLUETOOTH_DELAY:-0}" != 0 ]]; then
+          sleep "$BSPWM_TEST_BLUETOOTH_DELAY"
+        fi
+        printf 'Controller 00:00:00:00:00:00 test [default]\n'
+        ;;
+    esac
+    ;;
+  *)
+    record "$@"
+    ;;
+esac

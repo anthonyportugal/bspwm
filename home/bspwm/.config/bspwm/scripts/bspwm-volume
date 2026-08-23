@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+command -v wpctl >/dev/null 2>&1 || {
+  printf 'bspwm-volume: wpctl no está instalado\n' >&2
+  exit 127
+}
+
+case "${1-}" in
+  up)
+    wpctl set-volume --limit 1.0 @DEFAULT_AUDIO_SINK@ 5%+
+    ;;
+  down)
+    wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
+    ;;
+  mute)
+    wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+    ;;
+  mic-mute)
+    wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+    ;;
+  *)
+    printf 'Uso: %s up|down|mute|mic-mute\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac
+
+status=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null || true)
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send -h string:x-dunst-stack-tag:bspwm-volume "Volumen" "$status"
+fi

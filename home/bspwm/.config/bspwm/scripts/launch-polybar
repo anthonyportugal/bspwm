@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+BSPWM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bspwm"
+POLYBAR_DIR="$BSPWM_DIR/themes/catppuccin/polybar"
+
+if [[ -r "$BSPWM_DIR/local.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.env"
+fi
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/bspwm/polybar"
+POLYBAR_CONFIG="$POLYBAR_DIR/config.ini"
+POLYBAR_SAFE_RIGHT='memory filesystem xkeyboard'
+LAUNCHER_LOG="$STATE_DIR/launcher.log"
+
+mkdir -p -- "$STATE_DIR"
+command -v flock >/dev/null 2>&1 || {
+  printf 'launch-polybar: flock no está instalado\n' >&2
+  exit 127
+}
+
+# bspwmrc may be evaluated again while the first session startup is still
+# probing capabilities. Only one launcher may stop/start Polybar at a time.
+exec 9> "$STATE_DIR/launch.lock"
+if ! flock -n 9; then
+  printf '[%(%Y-%m-%dT%H:%M:%S%z)T] se ignoró un launcher concurrente\n' \
+    -1 >> "$LAUNCHER_LOG"
+  exit 0
+fi
+trap 'flock -u 9 2>/dev/null || true; exec 9>&-' EXIT
+
+modules_are_explicit=0
+requested_right=${BSPWM_POLYBAR_RIGHT:-}
+requested_right=${requested_right#"${requested_right%%[![:space:]]*}"}
+requested_right=${requested_right%"${requested_right##*[![:space:]]}"}
+
+if [[ -n "$requested_right" ]]; then
+  modules_are_explicit=1
+  BSPWM_POLYBAR_RIGHT=$requested_right
+  module_source=explicit
+else
+  detected_right_modules=(pulseaudio memory filesystem)
+
+  has_wired=0
+  has_wireless=0
+  for interface_path in /sys/class/net/*; do
+    [[ -e "$interface_path" ]] || continue
+    [[ "${interface_path##*/}" != lo ]] || continue
+    if [[ -d "$interface_path/wireless" ]]; then
+      has_wireless=1
+    else
+      has_wired=1
+    fi
+  done
+  (( has_wired == 0 )) || detected_right_modules+=(wired-network)
+  (( has_wireless == 0 )) || detected_right_modules+=(wireless-network)
+
+  battery_name=''
+  adapter_name=''
+  for supply_path in /sys/class/power_supply/*; do
+    [[ -r "$supply_path/type" ]] || continue
+    read -r supply_type < "$supply_path/type"
+    if [[ "$supply_type" == Battery && -z "$battery_name" ]] &&
+       [[ -r "$supply_path/capacity" && -r "$supply_path/status" ]]; then
+      battery_name=${supply_path##*/}
+    elif [[ "$supply_type" =~ ^(Mains|USB|USB_C)$ ]] &&
+         [[ -r "$supply_path/online" && -z "$adapter_name" ]]; then
+      adapter_name=${supply_path##*/}
+    fi
+  done
+  if [[ -n "$battery_name" && -n "$adapter_name" ]]; then
+    export BSPWM_BATTERY="$battery_name"
+    export BSPWM_ADAPTER="$adapter_name"
+    detected_right_modules+=(battery)
+  fi
+
+  detected_right_modules+=(xkeyboard)
+  BSPWM_POLYBAR_RIGHT="${detected_right_modules[*]}"
+  module_source=automatic
+fi
+export BSPWM_POLYBAR_RIGHT
+resolved_right_modules=$BSPWM_POLYBAR_RIGHT
+right_contains_tray=0
+if [[ " $resolved_right_modules " == *' tray '* ]]; then
+  right_contains_tray=1
+fi
+
+printf '[%(%Y-%m-%dT%H:%M:%S%z)T] pid=%s source=%s modules-right=%s\n' \
+  -1 "$BASHPID" "$module_source" "$resolved_right_modules" >> "$LAUNCHER_LOG"
+
+pkill -TERM -u "$UID" -x polybar 2>/dev/null || true
+for _ in {1..30}; do
+  pgrep -u "$UID" -x polybar >/dev/null 2>&1 || break
+  sleep 0.05
+done
+
+launch_bar() {
+  local monitor=$1
+  local center_modules=$2
+  local right_selection=$3
+  local log_path=$4
+
+  {
+    printf '\n[%(%Y-%m-%dT%H:%M:%S%z)T] monitor=%s modules-center=%s modules-right=%s\n' \
+      -1 "${monitor:-auto}" "$center_modules" "$right_selection"
+  } >> "$log_path"
+
+  if [[ -n "$monitor" ]]; then
+    MONITOR="$monitor" BSPWM_POLYBAR_CENTER="$center_modules" \
+      BSPWM_POLYBAR_RIGHT="$right_selection" \
+      polybar --config="$POLYBAR_CONFIG" main >> "$log_path" 2>&1 9>&- &
+  else
+    BSPWM_POLYBAR_CENTER="$center_modules" \
+      BSPWM_POLYBAR_RIGHT="$right_selection" \
+      polybar --config="$POLYBAR_CONFIG" main >> "$log_path" 2>&1 9>&- &
+  fi
+  launched_pid=$!
+}
+
+mapfile -t monitors < <(polybar --list-monitors 2>/dev/null | cut -d: -f1)
+(( ${#monitors[@]} > 0 )) || monitors=('')
+
+declare -a launched_pids=()
+declare -a launched_monitors=()
+declare -a launched_centers=()
+declare -a launched_logs=()
+
+for monitor_index in "${!monitors[@]}"; do
+  monitor=${monitors[$monitor_index]}
+  center_modules='date'
+  right_selection=$resolved_right_modules
+
+  # The X11 tray protocol permits one tray owner. By default keep it on the
+  # first bar next to the centered date. An explicit right-side tray keeps its
+  # literal placement and is not duplicated here.
+  if (( monitor_index == 0 && right_contains_tray == 0 )); then
+    center_modules='date tray'
+  fi
+
+  if [[ -n "$monitor" ]]; then
+    log_name=${monitor//[^[:alnum:]_.-]/_}
+  else
+    log_name=default
+  fi
+  log_path="$STATE_DIR/$log_name.log"
+  launch_bar "$monitor" "$center_modules" "$right_selection" "$log_path"
+  launched_pids+=("$launched_pid")
+  launched_monitors+=("$monitor")
+  launched_centers+=("$center_modules")
+  launched_logs+=("$log_path")
+done
+
+sleep 0.75
+
+startup_failed=0
+for monitor_index in "${!launched_pids[@]}"; do
+  launched_pid=${launched_pids[$monitor_index]}
+  kill -0 "$launched_pid" 2>/dev/null && continue
+
+  wait "$launched_pid" 2>/dev/null || true
+  log_path=${launched_logs[$monitor_index]}
+  if (( modules_are_explicit == 1 )); then
+    printf 'Polybar terminó durante el arranque; se conserva BSPWM_POLYBAR_RIGHT explícito.\n' \
+      >> "$log_path"
+    startup_failed=1
+    continue
+  fi
+
+  printf 'Polybar terminó con los módulos automáticos; reintentando con modules-right=%s.\n' \
+    "$POLYBAR_SAFE_RIGHT" >> "$log_path"
+  launch_bar "${launched_monitors[$monitor_index]}" \
+    "${launched_centers[$monitor_index]}" "$POLYBAR_SAFE_RIGHT" "$log_path"
+  launched_pids[monitor_index]=$launched_pid
+done
+
+if (( modules_are_explicit == 0 )); then
+  sleep 0.25
+  for monitor_index in "${!launched_pids[@]}"; do
+    launched_pid=${launched_pids[$monitor_index]}
+    if ! kill -0 "$launched_pid" 2>/dev/null; then
+      wait "$launched_pid" 2>/dev/null || true
+      printf 'Polybar también terminó con el fallback seguro.\n' \
+        >> "${launched_logs[$monitor_index]}"
+      startup_failed=1
+    fi
+  done
+fi
+
+exit "$startup_failed"

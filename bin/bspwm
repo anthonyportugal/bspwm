@@ -1,0 +1,1046 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+PROGRAM_NAME=${0##*/}
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd -P)
+STOW_DIR="$REPO_ROOT/home"
+PACKAGES_DIR="$REPO_ROOT/packages"
+
+COMMAND=""
+PROFILE="desktop"
+BACKEND_REQUEST="auto"
+PLATFORM_REQUEST="auto"
+TARGET_DIR=${HOME:?HOME no está definida}
+APPLY=0
+SYSTEM_ENABLED=1
+STOW_ENABLED=1
+MODE_SELECTION="both"
+
+PLATFORM=""
+BACKEND=""
+
+declare -a REPO_PACKAGES=()
+declare -a AUR_PACKAGES=()
+declare -a EXTERNAL_PACKAGES=()
+declare -a STOW_PACKAGES=()
+declare -a INSTALLED_REPO_PACKAGES=()
+declare -a INSTALLED_AUR_PACKAGES=()
+declare -a MISSING_REPO_PACKAGES=()
+declare -a MISSING_AUR_PACKAGES=()
+
+declare -a LINK_MISSING=()
+declare -a LINK_CONFLICTS=()
+declare -a LINK_DUPLICATES=()
+LINK_OK=0
+
+info() {
+  printf '==> %s\n' "$*"
+}
+
+warn() {
+  printf 'aviso: %s\n' "$*" >&2
+}
+
+error() {
+  printf 'error: %s\n' "$*" >&2
+}
+
+die() {
+  error "$*"
+  exit 1
+}
+
+usage_error() {
+  error "$*"
+  printf "Use '%s help' para ver la interfaz.\n" "$PROGRAM_NAME" >&2
+  exit 2
+}
+
+usage() {
+  cat <<EOF
+Uso:
+  $PROGRAM_NAME bootstrap [opciones]
+  $PROGRAM_NAME doctor [opciones]
+  $PROGRAM_NAME unlink [opciones]
+  $PROGRAM_NAME help
+
+Comandos:
+  bootstrap  Resuelve dependencias y enlaces. Sólo modifica con --apply.
+  doctor     Comprueba dependencias, sintaxis y enlaces sin modificar nada.
+  unlink     Retira únicamente los enlaces Stow. Sólo modifica con --apply.
+
+Opciones:
+  --profile core|desktop           Perfil acumulativo (default: desktop).
+  --backend auto|shelly|paru|yay|pacman
+                                    Backend de paquetes (default: auto).
+  --platform auto|cachyos|arch    Plataforma detectada u override explícito.
+  --target DIR                    Home objetivo (default: \$HOME).
+  --packages-only                 Opera o valida sólo paquetes del sistema.
+  --stow-only                     Opera o valida sólo paquetes Stow.
+  --apply                         Aplica bootstrap/unlink; sin él hay dry-run.
+  -h, --help                      Muestra esta ayuda.
+
+Ejemplos:
+  $PROGRAM_NAME bootstrap --profile desktop
+  $PROGRAM_NAME bootstrap --profile desktop --apply
+  $PROGRAM_NAME doctor --profile desktop
+  $PROGRAM_NAME unlink --profile desktop
+  $PROGRAM_NAME unlink --profile desktop --apply
+EOF
+}
+
+require_option_value() {
+  local option_name=$1
+  local option_value=${2-}
+  [[ -n "$option_value" ]] || usage_error "$option_name necesita un valor"
+}
+
+parse_args() {
+  if (( $# == 0 )); then
+    usage
+    exit 0
+  fi
+
+  COMMAND=$1
+  shift
+
+  case "$COMMAND" in
+    bootstrap|doctor|unlink)
+      ;;
+    help|-h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage_error "comando desconocido: $COMMAND"
+      ;;
+  esac
+
+  while (( $# > 0 )); do
+    case "$1" in
+      --profile)
+        require_option_value "$1" "${2-}"
+        PROFILE=$2
+        shift 2
+        ;;
+      --profile=*)
+        PROFILE=${1#*=}
+        require_option_value "--profile" "$PROFILE"
+        shift
+        ;;
+      --backend)
+        require_option_value "$1" "${2-}"
+        BACKEND_REQUEST=$2
+        shift 2
+        ;;
+      --backend=*)
+        BACKEND_REQUEST=${1#*=}
+        require_option_value "--backend" "$BACKEND_REQUEST"
+        shift
+        ;;
+      --platform)
+        require_option_value "$1" "${2-}"
+        PLATFORM_REQUEST=$2
+        shift 2
+        ;;
+      --platform=*)
+        PLATFORM_REQUEST=${1#*=}
+        require_option_value "--platform" "$PLATFORM_REQUEST"
+        shift
+        ;;
+      --target)
+        require_option_value "$1" "${2-}"
+        TARGET_DIR=$2
+        shift 2
+        ;;
+      --target=*)
+        TARGET_DIR=${1#*=}
+        require_option_value "--target" "$TARGET_DIR"
+        shift
+        ;;
+      --packages-only)
+        [[ "$MODE_SELECTION" != "stow" ]] || \
+          usage_error "--packages-only y --stow-only son excluyentes"
+        MODE_SELECTION="packages"
+        SYSTEM_ENABLED=1
+        STOW_ENABLED=0
+        shift
+        ;;
+      --stow-only)
+        [[ "$MODE_SELECTION" != "packages" ]] || \
+          usage_error "--packages-only y --stow-only son excluyentes"
+        MODE_SELECTION="stow"
+        SYSTEM_ENABLED=0
+        STOW_ENABLED=1
+        shift
+        ;;
+      --apply)
+        APPLY=1
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        usage_error "opción desconocida: $1"
+        ;;
+    esac
+  done
+
+  case "$PROFILE" in
+    core|desktop)
+      ;;
+    *)
+      usage_error "perfil no soportado: $PROFILE"
+      ;;
+  esac
+
+  case "$BACKEND_REQUEST" in
+    auto|shelly|paru|yay|pacman)
+      ;;
+    *)
+      usage_error "backend no soportado: $BACKEND_REQUEST"
+      ;;
+  esac
+
+  case "$PLATFORM_REQUEST" in
+    auto|cachyos|arch)
+      ;;
+    *)
+      usage_error "plataforma no soportada: $PLATFORM_REQUEST"
+      ;;
+  esac
+
+  if [[ "$COMMAND" == "doctor" && "$APPLY" == 1 ]]; then
+    usage_error "doctor siempre es read-only y no acepta --apply"
+  fi
+
+  if [[ "$COMMAND" == "unlink" ]]; then
+    [[ "$MODE_SELECTION" != "packages" ]] || \
+      usage_error "unlink sólo gestiona enlaces y no acepta --packages-only"
+    SYSTEM_ENABLED=0
+    STOW_ENABLED=1
+  fi
+}
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+trim_line() {
+  local value=$1
+  value=${value#"${value%%[![:space:]]*}"}
+  value=${value%"${value##*[![:space:]]}"}
+  printf '%s' "$value"
+}
+
+append_unique() {
+  local array_name=$1
+  local value=$2
+  local -n append_destination_ref=$array_name
+  local existing
+
+  for existing in "${append_destination_ref[@]}"; do
+    [[ "$existing" != "$value" ]] || return 0
+  done
+  append_destination_ref+=("$value")
+}
+
+array_contains() {
+  local array_name=$1
+  local expected=$2
+  local -n entries=$array_name
+  local entry
+
+  for entry in "${entries[@]}"; do
+    [[ "$entry" != "$expected" ]] || return 0
+  done
+  return 1
+}
+
+read_manifest() {
+  local manifest_path=$1
+  local array_name=$2
+  local -n manifest_destination_ref=$array_name
+  local raw_line line
+  declare -A manifest_seen=()
+
+  [[ -f "$manifest_path" ]] || die "no existe el manifiesto $manifest_path"
+  manifest_destination_ref=()
+
+  while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
+    line=$(trim_line "$raw_line")
+    [[ -n "$line" ]] || continue
+    [[ "$line" != \#* ]] || continue
+    [[ "$line" != *\#* ]] || \
+      die "comentario inline no permitido en $manifest_path: $line"
+    [[ "$line" != -* ]] || die "entrada insegura en $manifest_path: $line"
+    [[ "$line" =~ ^[A-Za-z0-9@._+:-]+$ ]] || \
+      die "entrada inválida en $manifest_path: $line"
+    [[ ! -v "manifest_seen[$line]" ]] || \
+      die "entrada duplicada en $manifest_path: $line"
+    manifest_seen["$line"]=1
+    manifest_destination_ref+=("$line")
+  done < "$manifest_path"
+}
+
+append_manifest_unique() {
+  local array_name=$1
+  local manifest_path=$2
+  local -a manifest_entries=()
+  local entry
+
+  read_manifest "$manifest_path" manifest_entries
+  for entry in "${manifest_entries[@]}"; do
+    append_unique "$array_name" "$entry"
+  done
+}
+
+read_os_release_value() {
+  local requested_key=$1
+  local key value
+
+  [[ -r /etc/os-release ]] || return 1
+  while IFS='=' read -r key value; do
+    [[ "$key" == "$requested_key" ]] || continue
+    if [[ "$value" == \"*\" || "$value" == \'*\' ]]; then
+      value=${value:1:${#value}-2}
+    fi
+    printf '%s' "$value"
+    return 0
+  done < /etc/os-release
+  return 1
+}
+
+detect_platform() {
+  local os_id os_like os_identity
+
+  if [[ "$PLATFORM_REQUEST" != "auto" ]]; then
+    PLATFORM=$PLATFORM_REQUEST
+    return 0
+  fi
+
+  os_id=$(read_os_release_value ID || true)
+  os_like=$(read_os_release_value ID_LIKE || true)
+  os_identity=" $os_id $os_like "
+
+  if [[ "$os_identity" == *" cachyos "* ]]; then
+    PLATFORM="cachyos"
+  elif [[ "$os_identity" == *" arch "* || "$os_id" == arch* ]]; then
+    PLATFORM="arch"
+  else
+    die "plataforma no soportada (${os_id:-desconocida}); use --platform sólo si es compatible con Arch"
+  fi
+}
+
+package_in_official_arch_repos() {
+  local package_name=$1
+  local repo_name
+
+  for repo_name in core extra multilib; do
+    if pacman -Si "$repo_name/$package_name" >/dev/null 2>&1; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+resolve_system_packages() {
+  local -a tiers=()
+  local -a fallback_packages=()
+  local tier package_name
+
+  REPO_PACKAGES=()
+  AUR_PACKAGES=()
+  EXTERNAL_PACKAGES=()
+
+  case "$PROFILE" in
+    core)
+      tiers=(core)
+      ;;
+    desktop)
+      tiers=(core desktop)
+      ;;
+  esac
+
+  for tier in "${tiers[@]}"; do
+    append_manifest_unique REPO_PACKAGES "$PACKAGES_DIR/repo/$tier.txt"
+  done
+
+  if [[ "$PROFILE" == "desktop" ]]; then
+    if [[ "$PLATFORM" == "cachyos" ]]; then
+      append_manifest_unique REPO_PACKAGES "$PACKAGES_DIR/cachyos/desktop.txt"
+    else
+      read_manifest "$PACKAGES_DIR/aur/desktop-fallback.txt" fallback_packages
+      for package_name in "${fallback_packages[@]}"; do
+        if package_in_official_arch_repos "$package_name"; then
+          append_unique REPO_PACKAGES "$package_name"
+        else
+          append_unique AUR_PACKAGES "$package_name"
+        fi
+      done
+    fi
+    append_manifest_unique EXTERNAL_PACKAGES "$PACKAGES_DIR/external/desktop.txt"
+  fi
+}
+
+resolve_stow_packages() {
+  local -a tiers=()
+  local tier package_name
+
+  STOW_PACKAGES=()
+  case "$PROFILE" in
+    core)
+      tiers=(core)
+      ;;
+    desktop)
+      tiers=(core desktop)
+      ;;
+  esac
+
+  for tier in "${tiers[@]}"; do
+    local -a tier_packages=()
+    read_manifest "$PACKAGES_DIR/stow/$tier.txt" tier_packages
+    for package_name in "${tier_packages[@]}"; do
+      [[ -d "$STOW_DIR/$package_name" ]] || \
+        die "el paquete Stow '$package_name' no existe bajo $STOW_DIR"
+      append_unique STOW_PACKAGES "$package_name"
+    done
+  done
+}
+
+detect_backend() {
+  local -a backend_order=()
+  local candidate
+
+  if [[ "$BACKEND_REQUEST" != "auto" ]]; then
+    command_exists "$BACKEND_REQUEST" || \
+      die "el backend solicitado no está instalado: $BACKEND_REQUEST"
+    BACKEND=$BACKEND_REQUEST
+    return 0
+  fi
+
+  read_manifest "$PACKAGES_DIR/package-backends.txt" backend_order
+  for candidate in "${backend_order[@]}"; do
+    case "$candidate" in
+      shelly)
+        [[ "$PLATFORM" == "cachyos" ]] || continue
+        ;;
+      paru|yay|pacman)
+        ;;
+      *)
+        die "backend desconocido en package-backends.txt: $candidate"
+        ;;
+    esac
+    if command_exists "$candidate"; then
+      BACKEND=$candidate
+      return 0
+    fi
+  done
+
+  die "no se encontró ningún backend de paquetes soportado"
+}
+
+package_is_installed() {
+  pacman -Qq "$1" >/dev/null 2>&1
+}
+
+classify_packages() {
+  local package_name
+
+  INSTALLED_REPO_PACKAGES=()
+  INSTALLED_AUR_PACKAGES=()
+  MISSING_REPO_PACKAGES=()
+  MISSING_AUR_PACKAGES=()
+
+  for package_name in "${REPO_PACKAGES[@]}"; do
+    if package_is_installed "$package_name"; then
+      INSTALLED_REPO_PACKAGES+=("$package_name")
+    else
+      MISSING_REPO_PACKAGES+=("$package_name")
+    fi
+  done
+
+  for package_name in "${AUR_PACKAGES[@]}"; do
+    if package_is_installed "$package_name"; then
+      INSTALLED_AUR_PACKAGES+=("$package_name")
+    else
+      MISSING_AUR_PACKAGES+=("$package_name")
+    fi
+  done
+}
+
+print_array() {
+  local label=$1
+  local array_name=$2
+  local -n entries=$array_name
+
+  if (( ${#entries[@]} == 0 )); then
+    printf '  %-24s %s\n' "$label:" '(ninguno)'
+  else
+    printf '  %-24s %s\n' "$label:" "${entries[*]}"
+  fi
+}
+
+format_command() {
+  local argument
+  printf '    '
+  for argument in "$@"; do
+    printf '%q ' "$argument"
+  done
+  printf '\n'
+}
+
+# ShellCheck no puede seguir el array que se devuelve mediante nameref.
+# shellcheck disable=SC2034
+build_repo_install_command() {
+  local output_name=$1
+  local -n repo_output_ref=$output_name
+
+  repo_output_ref=()
+  (( ${#MISSING_REPO_PACKAGES[@]} > 0 )) || return 0
+  case "$BACKEND" in
+    shelly)
+      repo_output_ref=(shelly install standard "${MISSING_REPO_PACKAGES[@]}")
+      ;;
+    paru|yay)
+      # Evita que el helper convierta silenciosamente una entrada repo en AUR.
+      repo_output_ref=("$BACKEND" -S --needed --repo "${MISSING_REPO_PACKAGES[@]}")
+      ;;
+    pacman)
+      if (( EUID == 0 )); then
+        repo_output_ref=(pacman -S --needed "${MISSING_REPO_PACKAGES[@]}")
+      else
+        repo_output_ref=(sudo pacman -S --needed "${MISSING_REPO_PACKAGES[@]}")
+      fi
+      ;;
+  esac
+}
+
+# ShellCheck no puede seguir el array que se devuelve mediante nameref.
+# shellcheck disable=SC2034
+build_aur_install_command() {
+  local output_name=$1
+  local -n aur_output_ref=$output_name
+
+  aur_output_ref=()
+  (( ${#MISSING_AUR_PACKAGES[@]} > 0 )) || return 0
+  case "$BACKEND" in
+    shelly)
+      aur_output_ref=(shelly install aur "${MISSING_AUR_PACKAGES[@]}")
+      ;;
+    paru|yay)
+      # Mantiene explícita la procedencia declarada por el manifest.
+      aur_output_ref=("$BACKEND" -S --needed --aur "${MISSING_AUR_PACKAGES[@]}")
+      ;;
+    pacman)
+      return 1
+      ;;
+  esac
+}
+
+show_package_commands() {
+  local -a repo_command=()
+  local -a aur_command=()
+  local result=0
+
+  info "Comandos de instalación previstos"
+  build_repo_install_command repo_command
+  if (( ${#repo_command[@]} > 0 )); then
+    format_command "${repo_command[@]}"
+  fi
+
+  if ! build_aur_install_command aur_command; then
+    error "pacman no puede instalar los paquetes AUR faltantes: ${MISSING_AUR_PACKAGES[*]}"
+    result=1
+  elif (( ${#aur_command[@]} > 0 )); then
+    format_command "${aur_command[@]}"
+  fi
+
+  if (( ${#repo_command[@]} == 0 && ${#aur_command[@]} == 0 )); then
+    printf '    (todos los paquetes seleccionados ya están instalados)\n'
+  fi
+  return "$result"
+}
+
+validate_package_plan() {
+  local result=0
+
+  if (( ${#EXTERNAL_PACKAGES[@]} > 0 )); then
+    error "no hay adaptador para fuentes externas: ${EXTERNAL_PACKAGES[*]}"
+    result=1
+  fi
+  if [[ "$BACKEND" == "pacman" && ${#MISSING_AUR_PACKAGES[@]} -gt 0 ]]; then
+    error "el perfil necesita AUR pero pacman sólo gestiona repositorios; instale Shelly, paru o yay, o fuerce otro backend"
+    result=1
+  fi
+  return "$result"
+}
+
+execute_package_install() {
+  local -a repo_command=()
+  local -a aur_command=()
+
+  validate_package_plan || return 1
+  if [[ "$BACKEND" == "pacman" && "$EUID" -ne 0 ]]; then
+    command_exists sudo || die "sudo es necesario para instalar paquetes con pacman"
+  fi
+
+  build_repo_install_command repo_command
+  build_aur_install_command aur_command
+
+  if (( ${#repo_command[@]} > 0 )); then
+    info "Instalando paquetes de repositorio con $BACKEND"
+    "${repo_command[@]}"
+  fi
+  if (( ${#aur_command[@]} > 0 )); then
+    info "Instalando paquetes AUR con $BACKEND; revise PKGBUILD y prompts del helper"
+    "${aur_command[@]}"
+  fi
+
+  classify_packages
+  if (( ${#MISSING_REPO_PACKAGES[@]} > 0 || ${#MISSING_AUR_PACKAGES[@]} > 0 )); then
+    print_array "Repo aún faltantes" MISSING_REPO_PACKAGES
+    print_array "AUR aún faltantes" MISSING_AUR_PACKAGES
+    error "la validación posterior de paquetes falló"
+    return 1
+  fi
+  return 0
+}
+
+inspect_links() {
+  local package_name package_dir source_path relative_path target_path
+  local canonical_source canonical_target existing_source link_value
+  local package_entries relative_parent parent_component current_parent parent_state
+  local -a parent_components=()
+  declare -A target_owners=()
+  declare -A parent_states=()
+
+  LINK_OK=0
+  LINK_MISSING=()
+  LINK_CONFLICTS=()
+  LINK_DUPLICATES=()
+
+  for package_name in "${STOW_PACKAGES[@]}"; do
+    package_dir="$STOW_DIR/$package_name"
+    package_entries=0
+    while IFS= read -r -d '' source_path; do
+      ((package_entries += 1))
+      relative_path=${source_path#"$package_dir"/}
+      target_path="$TARGET_DIR/$relative_path"
+
+      if [[ -v "target_owners[$target_path]" ]]; then
+        existing_source=${target_owners[$target_path]}
+        LINK_DUPLICATES+=("$target_path <- $existing_source y $source_path")
+        continue
+      fi
+      target_owners["$target_path"]=$source_path
+
+      relative_parent=${relative_path%/*}
+      if [[ "$relative_parent" != "$relative_path" ]]; then
+        IFS='/' read -r -a parent_components <<< "$relative_parent"
+        current_parent=$TARGET_DIR
+        for parent_component in "${parent_components[@]}"; do
+          [[ -n "$parent_component" ]] || continue
+          current_parent="$current_parent/$parent_component"
+          if [[ -v "parent_states[$current_parent]" ]]; then
+            parent_state=${parent_states[$current_parent]}
+            [[ "$parent_state" == "ok" ]] && continue
+            break
+          fi
+
+          if [[ -L "$current_parent" ]]; then
+            link_value=$(readlink -- "$current_parent" || true)
+            LINK_CONFLICTS+=("$current_parent (directorio padre es symlink a $link_value)")
+            parent_states["$current_parent"]="blocked"
+            break
+          elif [[ -e "$current_parent" && ! -d "$current_parent" ]]; then
+            LINK_CONFLICTS+=("$current_parent (ruta padre existe y no es directorio)")
+            parent_states["$current_parent"]="blocked"
+            break
+          elif [[ -d "$current_parent" ]]; then
+            parent_states["$current_parent"]="ok"
+          else
+            parent_states["$current_parent"]="missing"
+            break
+          fi
+        done
+      fi
+
+      if [[ -L "$target_path" ]]; then
+        canonical_source=$(realpath -m -- "$source_path")
+        canonical_target=$(realpath -m -- "$target_path")
+        if [[ "$canonical_source" == "$canonical_target" ]]; then
+          ((LINK_OK += 1))
+        else
+          link_value=$(readlink -- "$target_path" || true)
+          LINK_CONFLICTS+=("$target_path (symlink a $link_value)")
+        fi
+      elif [[ -e "$target_path" ]]; then
+        LINK_CONFLICTS+=("$target_path (ya existe y no es el enlace esperado)")
+      else
+        LINK_MISSING+=("$target_path")
+      fi
+    done < <(find "$package_dir" -mindepth 1 \( -type f -o -type l \) -print0)
+
+    (( package_entries > 0 )) || \
+      LINK_CONFLICTS+=("$package_dir (paquete Stow vacío)")
+  done
+}
+
+print_link_issues() {
+  local issue
+
+  for issue in "${LINK_DUPLICATES[@]}"; do
+    error "ownership duplicado: $issue"
+  done
+  for issue in "${LINK_CONFLICTS[@]}"; do
+    error "colisión: $issue"
+  done
+}
+
+ensure_no_link_collisions() {
+  inspect_links
+  print_link_issues
+  if (( ${#LINK_DUPLICATES[@]} > 0 || ${#LINK_CONFLICTS[@]} > 0 )); then
+    return 1
+  fi
+  info "Preflight Stow: $LINK_OK enlaces correctos, ${#LINK_MISSING[@]} por crear, 0 colisiones"
+  return 0
+}
+
+run_stow() {
+  local operation=$1
+  local simulate=$2
+  local -a stow_command=(
+    stow
+    "--dir=$STOW_DIR"
+    "--target=$TARGET_DIR"
+    --no-folding
+  )
+
+  if [[ "$operation" == "delete" ]]; then
+    stow_command+=(--delete)
+  fi
+  if [[ "$simulate" == 1 ]]; then
+    stow_command+=(--simulate --verbose=1)
+  else
+    stow_command+=(--verbose=1)
+  fi
+  stow_command+=("${STOW_PACKAGES[@]}")
+
+  format_command "${stow_command[@]}"
+  "${stow_command[@]}"
+}
+
+validate_links_installed() {
+  inspect_links
+  print_link_issues
+  if (( ${#LINK_DUPLICATES[@]} > 0 || ${#LINK_CONFLICTS[@]} > 0 || ${#LINK_MISSING[@]} > 0 )); then
+    local missing_path
+    for missing_path in "${LINK_MISSING[@]}"; do
+      error "enlace ausente: $missing_path"
+    done
+    return 1
+  fi
+  info "Enlaces validados: $LINK_OK correctos"
+  return 0
+}
+
+validate_links_unlinked() {
+  inspect_links
+  if (( LINK_OK > 0 )); then
+    error "quedaron $LINK_OK enlaces que todavía apuntan al stow directory"
+    return 1
+  fi
+  info "Unlink validado: no quedan enlaces administrados para el perfil"
+  return 0
+}
+
+validate_stow_scope() {
+  local package_root="$STOW_DIR/bspwm"
+  local config_parent="$package_root/.config"
+  local owned_root="$config_parent/bspwm"
+  local source_path unexpected_path=''
+
+  while IFS= read -r -d '' source_path; do
+    case "$source_path" in
+      "$config_parent"|"$owned_root"|"$owned_root"/*)
+        ;;
+      *)
+        unexpected_path=$source_path
+        break
+        ;;
+    esac
+  done < <(find "$package_root" -mindepth 1 -print0)
+
+  if [[ -n "$unexpected_path" ]]; then
+    error "contenido fuera del ownership de bspwm: ${unexpected_path#"$package_root"/}"
+    return 1
+  fi
+
+  info "Ownership Stow validado: sólo .config/bspwm"
+  return 0
+}
+
+validate_session_sources() {
+  local config_root="$STOW_DIR/bspwm/.config/bspwm"
+  local config_path
+  local result=0
+  local checked=0
+  local -a config_paths=("$config_root/bspwmrc")
+
+  while IFS= read -r -d '' config_path; do
+    config_paths+=("$config_path")
+  done < <(find "$config_root/scripts" -type f -print0)
+
+  for config_path in "${config_paths[@]}"; do
+    if ! bash -n "$config_path"; then
+      error "sintaxis Bash inválida: $config_path"
+      result=1
+    fi
+    if [[ ! -x "$config_path" ]]; then
+      error "el entrypoint de sesión no es ejecutable: $config_path"
+      result=1
+    fi
+    checked=$(( checked + 1 ))
+  done
+
+  if command_exists polybar; then
+    if ! BSPWM_POLYBAR_CENTER='date tray' \
+      BSPWM_POLYBAR_RIGHT='pulseaudio memory filesystem xkeyboard' \
+      polybar --config="$config_root/themes/catppuccin/polybar/config.ini" \
+        --dump=background main >/dev/null; then
+      error "Polybar no pudo analizar su configuración"
+      result=1
+    fi
+  fi
+
+  if command_exists rofi; then
+    local rofi_theme
+    for rofi_theme in launcher powermenu confirm; do
+      if ! rofi -no-config \
+        -theme "$config_root/themes/catppuccin/rofi/$rofi_theme.rasi" \
+        -dump-theme >/dev/null 2>&1; then
+        error "Rofi no pudo analizar el tema $rofi_theme.rasi"
+        result=1
+      fi
+    done
+  fi
+
+  (( result == 0 )) && info "Fuentes de sesión validadas ($checked scripts Bash)"
+  return "$result"
+}
+
+validate_portability() {
+  local config_root="$STOW_DIR/bspwm/.config/bspwm"
+  local matches
+
+  matches=$(grep -RInE \
+    '/etc/skel|/usr/share/archcraft|DP-[0-9]|HDMI-[0-9]|BAT[0-9]|amdgpu_bl[0-9]|enp[0-9]' \
+    "$config_root" || true)
+  if [[ -n "$matches" ]]; then
+    error "se encontraron dependencias Archcraft o nombres de hardware fijos"
+    printf '%s\n' "$matches" >&2
+    return 1
+  fi
+  info "Portabilidad validada: sin rutas Archcraft ni hardware conocido codificado"
+  return 0
+}
+
+preflight() {
+  command_exists find || die "falta el comando requerido: find"
+  command_exists realpath || die "falta el comando requerido: realpath"
+
+  if (( SYSTEM_ENABLED == 1 )); then
+    [[ -d "$PACKAGES_DIR" ]] || die "no existe $PACKAGES_DIR"
+    command_exists pacman || die "pacman es necesario para resolver el estado de paquetes"
+  fi
+
+  if (( STOW_ENABLED == 1 )); then
+    [[ -f "$STOW_DIR/.stow" ]] || die "falta el marcador $STOW_DIR/.stow"
+    TARGET_DIR=$(realpath -m -- "$TARGET_DIR")
+    [[ -d "$TARGET_DIR" ]] || die "el target no es un directorio existente: $TARGET_DIR"
+    [[ "$TARGET_DIR" != "/" ]] || die "se rechaza usar / como target de Stow"
+    if (( APPLY == 1 )); then
+      [[ -w "$TARGET_DIR" ]] || die "el target no es escribible: $TARGET_DIR"
+      if (( EUID == 0 )) && [[ -n "${SUDO_USER-}" ]]; then
+        die "no ejecute el bootstrap completo con sudo; el script eleva sólo el package manager"
+      fi
+    fi
+  fi
+}
+
+prepare() {
+  preflight
+
+  if (( SYSTEM_ENABLED == 1 )); then
+    detect_platform
+    resolve_system_packages
+    detect_backend
+    classify_packages
+  fi
+  if (( STOW_ENABLED == 1 )); then
+    resolve_stow_packages
+  fi
+}
+
+print_plan() {
+  local execution_mode
+
+  if [[ "$COMMAND" == "doctor" ]]; then
+    execution_mode="read-only"
+  elif [[ "$APPLY" == 1 ]]; then
+    execution_mode="apply"
+  else
+    execution_mode="dry-run"
+  fi
+
+  info "Plan del repositorio bspwm"
+  printf '  %-24s %s\n' 'Comando:' "$COMMAND"
+  printf '  %-24s %s\n' 'Modo:' "$execution_mode"
+  printf '  %-24s %s\n' 'Perfil:' "$PROFILE"
+  if (( SYSTEM_ENABLED == 1 )); then
+    printf '  %-24s %s\n' 'Plataforma:' "$PLATFORM"
+    printf '  %-24s %s\n' 'Backend:' "$BACKEND"
+    print_array "Paquetes repo" REPO_PACKAGES
+    print_array "Paquetes AUR" AUR_PACKAGES
+    print_array "Paquetes externos" EXTERNAL_PACKAGES
+    print_array "Repo faltantes" MISSING_REPO_PACKAGES
+    print_array "AUR faltantes" MISSING_AUR_PACKAGES
+  fi
+  if (( STOW_ENABLED == 1 )); then
+    printf '  %-24s %s\n' 'Target:' "$TARGET_DIR"
+    print_array "Paquetes Stow" STOW_PACKAGES
+  fi
+}
+
+bootstrap() {
+  local plan_valid=1
+
+  prepare
+  print_plan
+
+  if (( SYSTEM_ENABLED == 1 )); then
+    show_package_commands || plan_valid=0
+    validate_package_plan || plan_valid=0
+  fi
+
+  if (( STOW_ENABLED == 1 )); then
+    if validate_stow_scope; then
+      validate_session_sources || plan_valid=0
+      validate_portability || plan_valid=0
+      ensure_no_link_collisions || plan_valid=0
+      if command_exists stow; then
+        info "Simulación nativa de GNU Stow"
+        run_stow install 1 || plan_valid=0
+      elif (( SYSTEM_ENABLED == 1 )) && array_contains MISSING_REPO_PACKAGES stow; then
+        warn "Stow aún no está instalado; el preflight interno pasó y el perfil lo instalará antes de enlazar"
+      else
+        error "GNU Stow no está instalado"
+        plan_valid=0
+      fi
+    else
+      plan_valid=0
+    fi
+  fi
+
+  (( plan_valid == 1 )) || die "el preflight falló; no se modificó nada"
+
+  if (( APPLY == 0 )); then
+    info "Dry-run completado; vuelva a ejecutar con --apply para aplicar este plan"
+    return 0
+  fi
+
+  if (( SYSTEM_ENABLED == 1 )); then
+    execute_package_install || die "falló la instalación o su validación"
+  fi
+
+  if (( STOW_ENABLED == 1 )); then
+    command_exists stow || die "GNU Stow no quedó disponible después de instalar paquetes"
+    validate_stow_scope || die "el paquete Stow contiene rutas fuera de su ownership"
+    ensure_no_link_collisions || die "apareció una colisión antes de enlazar"
+    info "Última simulación de GNU Stow antes de aplicar"
+    run_stow install 1 || die "la simulación de GNU Stow falló"
+    info "Aplicando enlaces GNU Stow"
+    run_stow install 0 || die "GNU Stow no pudo crear los enlaces"
+    validate_links_installed || die "falló la validación posterior de enlaces"
+  fi
+
+  info "Bootstrap completado"
+}
+
+doctor() {
+  local result=0
+
+  prepare
+  print_plan
+
+  if (( SYSTEM_ENABLED == 1 )); then
+    if (( ${#MISSING_REPO_PACKAGES[@]} > 0 || ${#MISSING_AUR_PACKAGES[@]} > 0 )); then
+      error "faltan paquetes del perfil"
+      result=1
+    else
+      info "Paquetes validados: ${#REPO_PACKAGES[@]} de repo y ${#AUR_PACKAGES[@]} de AUR"
+    fi
+    validate_package_plan || result=1
+  fi
+
+  if (( STOW_ENABLED == 1 )); then
+    validate_stow_scope || result=1
+    validate_session_sources || result=1
+    validate_portability || result=1
+    if ! command_exists stow; then
+      error "GNU Stow no está instalado"
+      result=1
+    fi
+    validate_links_installed || result=1
+  fi
+
+  if (( result == 0 )); then
+    info "Doctor: todo correcto para el alcance seleccionado"
+  else
+    error "Doctor: se encontraron problemas"
+  fi
+  return "$result"
+}
+
+unlink_dotfiles() {
+  prepare
+  print_plan
+
+  command_exists stow || die "GNU Stow es necesario para retirar enlaces"
+  validate_stow_scope || die "el paquete Stow contiene rutas fuera de su ownership"
+  info "Simulación de unlink con GNU Stow"
+  run_stow delete 1 || die "la simulación de unlink falló; no se modificó nada"
+
+  if (( APPLY == 0 )); then
+    info "Dry-run completado; vuelva a ejecutar con --apply para retirar los enlaces"
+    return 0
+  fi
+
+  info "Retirando enlaces GNU Stow; no se eliminarán paquetes ni archivos ajenos"
+  run_stow delete 0 || die "GNU Stow no pudo retirar los enlaces"
+  validate_links_unlinked || die "falló la validación posterior de unlink"
+  info "Unlink completado"
+}
+
+main() {
+  parse_args "$@"
+  case "$COMMAND" in
+    bootstrap)
+      bootstrap
+      ;;
+    doctor)
+      doctor
+      ;;
+    unlink)
+      unlink_dotfiles
+      ;;
+  esac
+}
+
+main "$@"

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+command -v bluetoothctl >/dev/null 2>&1 || exit 0
+controller=$(bluetoothctl show 2>/dev/null || true)
+if ! grep -q 'Powered: yes' <<< "$controller"; then
+  printf '%%{T2}󰂲%%{T-}\n'
+  exit 0
+fi
+
+declare -a connected_names=()
+while read -r _ mac name; do
+  [[ -n "${mac:-}" ]] || continue
+  connected_names+=("${name:-$mac}")
+done < <(bluetoothctl devices Connected 2>/dev/null || true)
+
+if (( ${#connected_names[@]} == 0 )); then
+  printf '%%{T2}󰂯%%{T-}\n'
+else
+  printf -v joined '%s, ' "${connected_names[@]}"
+  joined=${joined%, }
+  printf '%%{T2}󰂱%%{T-} %s\n' "$joined"
+fi

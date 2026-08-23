@@ -1,0 +1,5 @@
+# Detection order. Shelly is considered only on CachyOS.
+shelly
+paru
+yay
+pacman

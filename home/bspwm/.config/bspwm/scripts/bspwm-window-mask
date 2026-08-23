@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+hidden_node=$(bspc query -N -n .hidden -d focused 2>/dev/null || true)
+if [[ -n "$hidden_node" ]]; then
+  bspc node "$hidden_node" -g hidden=off
+else
+  bspc node focused -g hidden=on
+fi

@@ -1,0 +1,9 @@
+bspwm
+stow
+sxhkd
+util-linux
+xorg-server
+xorg-xauth
+xorg-xrandr
+xorg-setxkbmap
+xorg-xsetroot

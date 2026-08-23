@@ -1,0 +1,2 @@
+# Use only when Brave is absent from configured Arch binary repositories.
+brave-bin

@@ -1,0 +1,61 @@
+# Static Catppuccin Mocha notification style for the bspwm session.
+
+[global]
+    follow = keyboard
+    width = (280, 420)
+    height = (0, 300)
+    origin = top-right
+    offset = (12, 42)
+    notification_limit = 8
+
+    progress_bar = true
+    progress_bar_height = 8
+    progress_bar_frame_width = 1
+    progress_bar_min_width = 180
+    progress_bar_max_width = 360
+
+    indicate_hidden = yes
+    transparency = 4
+    separator_height = 2
+    padding = 10
+    horizontal_padding = 12
+    text_icon_padding = 10
+    frame_width = 2
+    frame_color = "#F5C2E7"
+    separator_color = frame
+    gap_size = 6
+
+    font = JetBrains Mono 9
+    line_height = 2
+    markup = full
+    format = "<b>%s</b>\n%b"
+    alignment = left
+    vertical_alignment = center
+    ellipsize = middle
+    stack_duplicates = true
+    hide_duplicate_count = false
+    show_indicators = yes
+
+    icon_position = left
+    min_icon_size = 24
+    max_icon_size = 48
+    corner_radius = 8
+    mouse_left_click = close_current
+    mouse_middle_click = do_action, close_current
+    mouse_right_click = close_all
+
+[urgency_low]
+    background = "#1E1E2E"
+    foreground = "#A6ADC8"
+    timeout = 5
+
+[urgency_normal]
+    background = "#1E1E2E"
+    foreground = "#CDD6F4"
+    timeout = 8
+
+[urgency_critical]
+    background = "#1E1E2E"
+    foreground = "#F38BA8"
+    frame_color = "#F38BA8"
+    timeout = 0

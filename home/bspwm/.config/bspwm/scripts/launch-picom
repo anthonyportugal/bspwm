@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+BSPWM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bspwm"
+if [[ -r "$BSPWM_DIR/local.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.env"
+fi
+
+pkill -TERM -u "$UID" -x picom 2>/dev/null || true
+for _ in {1..20}; do
+  pgrep -u "$UID" -x picom >/dev/null 2>&1 || break
+  sleep 0.05
+done
+
+exec picom --config "$BSPWM_DIR/picom.conf" --backend "${BSPWM_PICOM_BACKEND:-glx}"

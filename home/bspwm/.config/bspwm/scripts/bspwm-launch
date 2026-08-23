@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+BSPWM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bspwm"
+if [[ -r "$BSPWM_DIR/local.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.env"
+fi
+
+notify_missing() {
+  local command_name=$1
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "bspwm" "No se encontró el comando: $command_name"
+  fi
+  printf 'bspwm-launch: no se encontró %s\n' "$command_name" >&2
+  exit 127
+}
+
+launch_command() {
+  local command_name=$1
+  command -v "$command_name" >/dev/null 2>&1 || notify_missing "$command_name"
+  exec "$command_name"
+}
+
+case "${1-}" in
+  browser)
+    launch_command "${BSPWM_BROWSER:-brave}"
+    ;;
+  files)
+    launch_command "${BSPWM_FILE_MANAGER:-thunar}"
+    ;;
+  editor)
+    editor="${BSPWM_EDITOR:-micro}"
+    command -v "$editor" >/dev/null 2>&1 || notify_missing "$editor"
+    exec "$BSPWM_DIR/scripts/bspwm-terminal" -- "$editor"
+    ;;
+  terminal-files)
+    file_manager="${BSPWM_TERMINAL_FILE_MANAGER:-yazi}"
+    command -v "$file_manager" >/dev/null 2>&1 || notify_missing "$file_manager"
+    exec "$BSPWM_DIR/scripts/bspwm-terminal" -- "$file_manager"
+    ;;
+  *)
+    printf 'Uso: %s browser|files|editor|terminal-files\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac

@@ -1,0 +1,111 @@
+# Based on the Archcraft bspwm keybindings.
+# Copyright (C) 2020-2026 Aditya Shakya <adi1090x@gmail.com>
+
+# Applications
+super + Return
+	bspwm-terminal
+
+super + shift + Return
+	bspwm-terminal --float
+
+super + {d,w,x}
+	bspwm-rofi {drun,window,power}
+
+alt + {F1,F2}
+	bspwm-rofi {drun,run}
+
+super + shift + {b,f,e,y}
+	bspwm-launch {browser,files,editor,terminal-files}
+
+ctrl + alt + l
+	bspwm-rofi lock
+
+# Screenshots
+Print
+	bspwm-screenshot full
+
+alt + Print
+	bspwm-screenshot full --delay 5
+
+ctrl + Print
+	bspwm-screenshot window
+
+super + Print
+	bspwm-screenshot area
+
+# Hardware keys degrade cleanly when a capability is absent.
+XF86MonBrightness{Up,Down}
+	bspwm-brightness {up,down}
+
+XF86Audio{RaiseVolume,LowerVolume,Mute,MicMute}
+	bspwm-volume {up,down,mute,mic-mute}
+
+XF86Audio{Next,Prev,Play,Stop}
+	playerctl --player=playerctld {next,previous,play-pause,stop}
+
+alt + {F6,F7,F8}
+	playerctl --player=playerctld {play-pause,previous,next}
+
+# bspwm
+super + shift + h
+	bspwm-window-mask
+
+super + {_,shift + }c
+	bspc node -{c,k}
+
+ctrl + shift + {q,r}
+	bspc {quit,wm -r}
+
+super + Escape
+	pkill -USR1 -u "$(id -u)" -x sxhkd
+
+ctrl + alt + {Left,Right}
+	bspc desktop -f {prev.local,next.local}
+
+super + {1-8}
+	bspc desktop -f '^{1-8}'
+
+super + shift + {1-8}
+	bspc node -d '^{1-8}' --follow
+
+super + ctrl + shift + {Left,Right}
+	bspc node -d {prev,next} --follow
+
+super + {_,shift + }{Left,Down,Up,Right}
+	bspc node -{f,s} {west,south,north,east}
+
+super + alt + shift + {Left,Down,Up,Right}
+	bspc node -v {-20 0,0 20,0 -20,20 0}
+
+super + control + {Left,Right,Up,Down}
+	bspc node -z {left -20 0,right 20 0,top 0 -20,bottom 0 20}
+
+super + alt + {Left,Right,Up,Down}
+	bspc node -z {left 20 0,right -20 0,top 0 20,bottom 0 -20}
+
+super + {h,v,q}
+	bspc node -p {east,south,cancel}
+
+super + ctrl + {1-9}
+	bspc node -o 0.{1-9}
+
+super + l
+	bspc desktop -l next
+
+super + f
+	bspc node -t '~fullscreen'
+
+super + space
+	bspc node -t '~floating'
+
+super + shift + space
+	bspc node -t '~pseudo_tiled'
+
+super + ctrl + {m,x,y,z}
+	bspc node -g {marked,locked,sticky,private}
+
+alt + {_,shift + }Tab
+	bspc node -f {next.local,prev.local}
+
+super + {Tab,grave}
+	bspc {node,desktop} -f last

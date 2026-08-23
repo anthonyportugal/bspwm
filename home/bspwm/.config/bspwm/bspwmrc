@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+
+# Based on the Archcraft bspwm configuration.
+# Copyright (C) 2020-2026 Aditya Shakya <adi1090x@gmail.com>
+# Standalone adaptation maintained by Anthony Portugal.
+
+BSPWM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bspwm"
+export PATH="$BSPWM_DIR/scripts:$PATH"
+export XDG_CURRENT_DESKTOP=bspwm
+export _JAVA_AWT_WM_NONREPARENTING=1
+
+# Machine/private overrides are optional and loaded before public defaults.
+# This file is intentionally not part of the public repository.
+if [[ -r "$BSPWM_DIR/local.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.env"
+fi
+
+export BSPWM_TERMINAL="${BSPWM_TERMINAL:-alacritty}"
+export BSPWM_BROWSER="${BSPWM_BROWSER:-brave}"
+export BSPWM_FILE_MANAGER="${BSPWM_FILE_MANAGER:-thunar}"
+export BSPWM_EDITOR="${BSPWM_EDITOR:-micro}"
+export BSPWM_TERMINAL_FILE_MANAGER="${BSPWM_TERMINAL_FILE_MANAGER:-yazi}"
+
+BSPWM_XKB_LAYOUTS="${BSPWM_XKB_LAYOUTS:-us,latam}"
+BSPWM_XKB_OPTIONS="${BSPWM_XKB_OPTIONS:-grp:alt_space_toggle}"
+
+BSPWM_FOCUSED_BORDER="${BSPWM_FOCUSED_BORDER:-#F5C2E7}"
+BSPWM_NORMAL_BORDER="${BSPWM_NORMAL_BORDER:-#1E1E2E}"
+BSPWM_ACTIVE_BORDER="${BSPWM_ACTIVE_BORDER:-#F5C2E7}"
+BSPWM_PRESEL_BORDER="${BSPWM_PRESEL_BORDER:-#A6E3A1}"
+BSPWM_BORDER_WIDTH="${BSPWM_BORDER_WIDTH:-0}"
+BSPWM_WINDOW_GAP="${BSPWM_WINDOW_GAP:-5}"
+BSPWM_SPLIT_RATIO="${BSPWM_SPLIT_RATIO:-0.50}"
+
+declare -a monitors=()
+declare -a available_monitors=()
+declare -a workspace_names=()
+
+mapfile -t available_monitors < <(bspc query -M --names)
+
+if [[ -n "${BSPWM_MONITOR_ORDER:-}" ]]; then
+  read -r -a requested_monitors <<< "$BSPWM_MONITOR_ORDER"
+  for requested_monitor in "${requested_monitors[@]}"; do
+    for available_monitor in "${available_monitors[@]}"; do
+      if [[ "$requested_monitor" == "$available_monitor" ]]; then
+        monitors+=("$requested_monitor")
+        break
+      fi
+    done
+  done
+
+  # Keep newly connected outputs usable even when the local order is partial.
+  for available_monitor in "${available_monitors[@]}"; do
+    monitor_is_listed=0
+    for requested_monitor in "${monitors[@]}"; do
+      if [[ "$requested_monitor" == "$available_monitor" ]]; then
+        monitor_is_listed=1
+        break
+      fi
+    done
+    (( monitor_is_listed == 1 )) || monitors+=("$available_monitor")
+  done
+else
+  monitors=("${available_monitors[@]}")
+fi
+
+if (( ${#monitors[@]} == 0 )); then
+  printf 'bspwmrc: no se detectaron monitores administrados por bspwm\n' >&2
+else
+  read -r -a workspace_names <<< "${BSPWM_WORKSPACES:-       }"
+
+  # Ensure every monitor receives at least one uniquely named desktop.
+  while (( ${#workspace_names[@]} < ${#monitors[@]} )); do
+    workspace_names+=("$(( ${#workspace_names[@]} + 1 ))")
+  done
+
+  workspace_count=${#workspace_names[@]}
+  monitor_count=${#monitors[@]}
+  workspaces_per_monitor=$(( workspace_count / monitor_count ))
+  extra_workspaces=$(( workspace_count % monitor_count ))
+  workspace_offset=0
+
+  for monitor_index in "${!monitors[@]}"; do
+    monitor_workspace_count=$workspaces_per_monitor
+    if (( monitor_index < extra_workspaces )); then
+      monitor_workspace_count=$(( monitor_workspace_count + 1 ))
+    fi
+    monitor_workspaces=(
+      "${workspace_names[@]:workspace_offset:monitor_workspace_count}"
+    )
+    bspc monitor "${monitors[$monitor_index]}" -d "${monitor_workspaces[@]}"
+    workspace_offset=$(( workspace_offset + monitor_workspace_count ))
+  done
+
+  if (( monitor_count > 1 )); then
+    bspc wm --reorder-monitors "${monitors[@]}"
+  fi
+fi
+
+bspc config border_width "$BSPWM_BORDER_WIDTH"
+bspc config window_gap "$BSPWM_WINDOW_GAP"
+bspc config split_ratio "$BSPWM_SPLIT_RATIO"
+bspc config focused_border_color "$BSPWM_FOCUSED_BORDER"
+bspc config normal_border_color "$BSPWM_NORMAL_BORDER"
+bspc config active_border_color "$BSPWM_ACTIVE_BORDER"
+bspc config presel_feedback_color "$BSPWM_PRESEL_BORDER"
+bspc config borderless_monocle true
+bspc config gapless_monocle true
+bspc config paddingless_monocle true
+bspc config single_monocle false
+bspc config focus_follows_pointer true
+bspc config presel_feedback true
+
+bspc wm --adopt-orphans
+bspc rule -r '*'
+
+# A small public ruleset. Personal application routing belongs in
+# local.bspwmrc, not in this public baseline.
+bspc rule -a bspwm-terminal desktop='^1' follow=on focus=on
+bspc rule -a bspwm-float state=floating follow=on focus=on
+bspc rule -a Brave-browser desktop='^2' follow=on focus=on
+bspc rule -a brave-browser desktop='^2' follow=on focus=on
+bspc rule -a Thunar desktop='^3' follow=on focus=on
+bspc rule -a mpv desktop='^7' follow=on focus=on
+
+floating_classes=(Arandr Blueman-manager Lxappearance Nm-connection-editor Pavucontrol)
+for floating_class in "${floating_classes[@]}"; do
+  bspc rule -a "$floating_class" state=floating follow=on focus=on
+done
+
+# Optional private/local rules and settings take precedence over the public
+# baseline. Their absence is expected and produces no warning.
+if [[ -r "$BSPWM_DIR/local.bspwmrc" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.bspwmrc"
+fi
+
+terminate_owned_process() {
+  local process_name=$1
+
+  pgrep -u "$UID" -x "$process_name" >/dev/null 2>&1 || return 0
+  pkill -TERM -u "$UID" -x "$process_name" 2>/dev/null || true
+  for _ in {1..20}; do
+    pgrep -u "$UID" -x "$process_name" >/dev/null 2>&1 || return 0
+    sleep 0.05
+  done
+}
+
+terminate_owned_process sxhkd
+
+if [[ "${BSPWM_DISABLE_XKB:-0}" != 1 ]] && command -v setxkbmap >/dev/null; then
+  xkb_args=(-layout "$BSPWM_XKB_LAYOUTS")
+  if [[ -n "$BSPWM_XKB_OPTIONS" ]]; then
+    xkb_args+=(-option "$BSPWM_XKB_OPTIONS")
+  fi
+  if ! setxkbmap "${xkb_args[@]}"; then
+    printf 'bspwmrc: no se pudo aplicar la configuración XKB de la sesión\n' >&2
+  fi
+fi
+
+sxhkd -c "$BSPWM_DIR/sxhkdrc" &
+
+if [[ "${BSPWM_DISABLE_XCAPE:-0}" != 1 ]] && command -v xcape >/dev/null; then
+  terminate_owned_process xcape
+  xcape -e "${BSPWM_XCAPE_MAPPING:-Super_L=Alt_L|F1;Super_R=Alt_L|F1}" &
+fi
+
+if [[ "${BSPWM_DISABLE_DUNST:-0}" != 1 ]] && command -v dunst >/dev/null; then
+  terminate_owned_process dunst
+  dunst --config "$BSPWM_DIR/dunstrc" &
+fi
+
+if [[ "${BSPWM_DISABLE_PICOM:-0}" != 1 ]] && command -v picom >/dev/null; then
+  "$BSPWM_DIR/scripts/launch-picom" &
+fi
+
+if [[ "${BSPWM_DISABLE_POLYBAR:-0}" != 1 ]] && command -v polybar >/dev/null; then
+  "$BSPWM_DIR/scripts/launch-polybar" &
+fi
+
+if command -v xsetroot >/dev/null; then
+  xsetroot -cursor_name left_ptr
+fi
+
+polkit_agent=/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+if [[ "${BSPWM_DISABLE_POLKIT:-0}" != 1 ]] &&
+   [[ -x "$polkit_agent" ]] &&
+   ! pgrep -u "$UID" -f 'polkit-gnome-authentication-agent-1' >/dev/null; then
+  "$polkit_agent" &
+fi
+
+if [[ "${BSPWM_DISABLE_PLAYERCTLD:-0}" != 1 ]] &&
+   command -v playerctld >/dev/null &&
+   ! pgrep -u "$UID" -x playerctld >/dev/null; then
+  playerctld daemon &
+fi
+
+if [[ "${BSPWM_RESTORE_WALLPAPER:-1}" == 1 ]]; then
+  if [[ -n "${BSPWM_WALLPAPER_COMMAND:-}" ]]; then
+    bash -lc "$BSPWM_WALLPAPER_COMMAND" &
+  elif [[ -r "$HOME/.fehbg" ]]; then
+    bash "$HOME/.fehbg" &
+  fi
+fi

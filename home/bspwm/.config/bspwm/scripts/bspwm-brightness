@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+command -v brightnessctl >/dev/null 2>&1 || {
+  printf 'bspwm-brightness: brightnessctl no está instalado\n' >&2
+  exit 127
+}
+
+case "${1-}" in
+  up)
+    change='+5%'
+    ;;
+  down)
+    change='5%-'
+    ;;
+  *)
+    printf 'Uso: %s up|down\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac
+
+if ! output=$(brightnessctl --machine-readable set "$change" 2>/dev/null); then
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "Brillo" "No se detectó un dispositivo compatible"
+  fi
+  exit 1
+fi
+
+percentage=$(awk -F, 'NF >= 4 { print $4; exit }' <<< "$output")
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send -h string:x-dunst-stack-tag:bspwm-brightness "Brillo" "${percentage:-actualizado}"
+fi

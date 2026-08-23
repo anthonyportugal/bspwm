@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+BSPWM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bspwm"
+ROFI_DIR="$BSPWM_DIR/themes/catppuccin/rofi"
+ROFI_LAUNCHER_THEME="$ROFI_DIR/launcher.rasi"
+ROFI_POWER_THEME="$ROFI_DIR/powermenu.rasi"
+ROFI_CONFIRM_THEME="$ROFI_DIR/confirm.rasi"
+
+POWER_LOCK=''
+POWER_LOGOUT=''
+POWER_SUSPEND=''
+POWER_HIBERNATE=''
+POWER_REBOOT=''
+POWER_SHUTDOWN=''
+CONFIRM_YES=''
+CONFIRM_NO=''
+
+if [[ -r "$BSPWM_DIR/local.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.env"
+fi
+
+command -v rofi >/dev/null 2>&1 || {
+  printf 'bspwm-rofi: rofi no está instalado\n' >&2
+  exit 127
+}
+
+notify_failure() {
+  local message=$1
+  command -v notify-send >/dev/null 2>&1 && notify-send "bspwm" "$message"
+  printf 'bspwm-rofi: %s\n' "$message" >&2
+  return 1
+}
+
+lock_session() {
+  if [[ -n "${BSPWM_LOCK_COMMAND:-}" ]]; then
+    bash -lc "$BSPWM_LOCK_COMMAND"
+  elif command -v betterlockscreen >/dev/null 2>&1; then
+    betterlockscreen --lock
+  elif command -v loginctl >/dev/null 2>&1; then
+    loginctl lock-session
+  else
+    notify_failure "No hay un locker configurado"
+  fi
+}
+
+confirm_action() {
+  local action=$1
+  local answer
+  answer=$(printf '%s\n%s\n' "$CONFIRM_YES" "$CONFIRM_NO" |
+    rofi -dmenu -i -selected-row 1 -p "Confirmar" \
+      -mesg "¿Confirmar $action?" -theme "$ROFI_CONFIRM_THEME") || return 1
+  [[ "$answer" == "$CONFIRM_YES" ]]
+}
+
+run_power_action() {
+  local choice=$1
+  case "$choice" in
+    "$POWER_LOCK")
+      lock_session
+      ;;
+    "$POWER_LOGOUT")
+      confirm_action "salida" && bspc quit
+      ;;
+    "$POWER_SUSPEND")
+      systemctl suspend
+      ;;
+    "$POWER_HIBERNATE")
+      confirm_action "hibernación" && systemctl hibernate
+      ;;
+    "$POWER_REBOOT")
+      confirm_action "reinicio" && systemctl reboot
+      ;;
+    "$POWER_SHUTDOWN")
+      confirm_action "apagado" && systemctl poweroff
+      ;;
+  esac
+}
+
+case "${1-}" in
+  drun|run|window)
+    exec rofi -show "$1" -theme "$ROFI_LAUNCHER_THEME"
+    ;;
+  lock)
+    lock_session
+    ;;
+  power)
+    choice=$(printf '%s\n%s\n%s\n%s\n%s\n%s\n' \
+      "$POWER_LOCK" "$POWER_LOGOUT" "$POWER_SUSPEND" \
+      "$POWER_HIBERNATE" "$POWER_REBOOT" "$POWER_SHUTDOWN" |
+      rofi -dmenu -i -p "Sesión" \
+        -mesg "Bloquear  ·  Salir  ·  Suspender  ·  Hibernar  ·  Reiniciar  ·  Apagar" \
+        -theme "$ROFI_POWER_THEME") || exit 0
+    [[ -n "$choice" ]] && run_power_action "$choice"
+    ;;
+  *)
+    printf 'Uso: %s drun|run|window|lock|power\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+command -v playerctl >/dev/null 2>&1 || exit 0
+player="${BSPWM_PLAYER:-playerctld}"
+status=$(playerctl --player="$player" status 2>/dev/null || true)
+[[ -n "$status" ]] || exit 0
+
+metadata=$(playerctl --player="$player" metadata --format '{{artist}} — {{title}}' 2>/dev/null || true)
+metadata=$(printf '%s' "$metadata" | cut -c 1-52 | sed 's/%/%%/g')
+
+case "$status" in
+  Playing)
+    icon=''
+    ;;
+  Paused)
+    icon=''
+    ;;
+  *)
+    icon=''
+    ;;
+esac
+
+if [[ -n "$metadata" && "$metadata" != ' — ' ]]; then
+  printf '%%{T2}%s%%{T-} %s\n' "$icon" "$metadata"
+else
+  printf '%%{T2}%s%%{T-}\n' "$icon"
+fi

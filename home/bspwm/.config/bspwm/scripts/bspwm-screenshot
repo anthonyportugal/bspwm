@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+mode="${1-}"
+shift || true
+delay=0
+
+while (( $# > 0 )); do
+  case "$1" in
+    --delay)
+      [[ "${2-}" =~ ^[0-9]+$ ]] || {
+        printf 'bspwm-screenshot: --delay necesita segundos enteros\n' >&2
+        exit 2
+      }
+      delay=$2
+      shift 2
+      ;;
+    *)
+      printf 'bspwm-screenshot: opción desconocida: %s\n' "$1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+case "$mode" in
+  full|window|area)
+    ;;
+  *)
+    printf 'Uso: %s full|window|area [--delay SEGUNDOS]\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac
+
+command -v maim >/dev/null 2>&1 || {
+  printf 'bspwm-screenshot: maim no está instalado\n' >&2
+  exit 127
+}
+
+if command -v xdg-user-dir >/dev/null 2>&1; then
+  pictures_dir=$(xdg-user-dir PICTURES)
+fi
+pictures_dir="${pictures_dir:-$HOME/Pictures}"
+screenshot_dir="$pictures_dir/Screenshots"
+mkdir -p -- "$screenshot_dir"
+
+timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
+screenshot_path="$screenshot_dir/Screenshot_$timestamp.png"
+declare -a maim_args=(-u -d "$delay")
+
+case "$mode" in
+  full)
+    ;;
+  window)
+    window_id=$(bspc query -N -n focused)
+    maim_args+=(-i "$window_id")
+    ;;
+  area)
+    maim_args+=(-s -b 2 -c '0.506,0.631,0.756,0.35')
+    ;;
+esac
+
+maim "${maim_args[@]}" "$screenshot_path"
+
+if command -v xclip >/dev/null 2>&1; then
+  xclip -selection clipboard -t image/png -i "$screenshot_path"
+  clipboard_note=' y copiada al portapapeles'
+else
+  clipboard_note=''
+fi
+
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send "Captura guardada${clipboard_note}" "$screenshot_path"
+fi
+printf '%s\n' "$screenshot_path"
