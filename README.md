@@ -1,24 +1,25 @@
 # bspwm dotfiles
 
-Sesión X11 pública y autónoma basada en bspwm, con Polybar, Rofi, Picom y
-Dunst. Puede instalarse sin los dotfiles base, Mango, Archcraft o configuración
-privada.
+*Read this in other languages:* [Español](README.es.md)
 
-## Instalación rápida
+Standalone, public X11 desktop session based on bspwm, with Polybar, Rofi, Picom,
+and Dunst. It can be installed completely without the base dotfiles, MangoWM,
+Archcraft, or private configurations.
 
-En CachyOS o Arch Linux, clona el repositorio y entra en él:
+## Quickstart
+
+On CachyOS or Arch Linux, clone the repository and enter it:
 
 ```bash
 git clone https://github.com/anthonyportugal/bspwm.git
 cd bspwm
 ```
 
-CachyOS puede usar Shelly y su paquete binario de Brave. En Arch genérico,
-instala primero `paru` o `yay` si quieres que el perfil `desktop` resuelva el
-fallback AUR `brave-bin`.
+CachyOS can use Shelly and its native Brave binary package. On generic Arch Linux,
+install `paru` or `yay` first if you want the `desktop` profile to resolve the
+`brave-bin` AUR fallback.
 
-De los tres comandos siguientes, el primero sólo muestra lo que cambiaría.
-Revisa el plan antes de aplicarlo:
+The first command executes a dry-run. Inspect the planned operations before applying:
 
 ```bash
 ./bin/bspwm bootstrap --profile desktop
@@ -26,70 +27,57 @@ Revisa el plan antes de aplicarlo:
 ./bin/bspwm doctor --profile desktop
 ```
 
-Después:
+Afterward:
 
-1. cierra la sesión actual;
-2. selecciona `bspwm` en Ly u otro display manager;
-3. inicia sesión;
-4. pulsa `Super` para abrir las aplicaciones o `Super+X` para el menú de
-   sesión;
-5. usa `Alt+Space` para alternar entre los layouts `us` y `latam`.
+1. Log out of the current session;
+2. Select `bspwm` in Ly or another display manager;
+3. Log in;
+4. Press `Super` to launch applications or `Super+X` for the power menu;
+5. Use `Alt+Space` to toggle between `us` and `latam` keyboard layouts;
+6. Use `Super+Ctrl+W` to open the interactive Rofi wallpaper selector.
 
-No ejecutes el bootstrap completo con `sudo`. El propio backend eleva sólo la
-instalación de paquetes; GNU Stow siempre opera como tu usuario.
+Do not run the entire bootstrap with `sudo`. The backend elevates package
+installation privileges internally; GNU Stow always runs as your regular user.
 
-## Si algo no aparece al iniciar
+## Troubleshooting
 
-### Picom en una máquina virtual
+### Picom in Virtual Machines
 
-El backend predeterminado es `glx`. Algunas GPUs virtuales necesitan `xrender`.
-Crea `~/.config/bspwm/local.env` con:
+The default rendering backend is `glx`. Some virtual GPUs require `xrender`.
+Create `~/.config/bspwm/local.env` with:
 
 ```bash
 BSPWM_PICOM_BACKEND=xrender
 ```
 
-Este ajuste debe permanecer local: el repositorio público no codifica una
-excepción para un hipervisor concreto.
+Keep this setting local: the public repository does not hardcode hypervisor-specific
+exceptions.
 
 ### Polybar
 
-Los logs se guardan en `$XDG_STATE_HOME/bspwm/polybar` cuando la variable
-existe, o en `~/.local/state/bspwm/polybar` en caso contrario:
+Logs are written to `$XDG_STATE_HOME/bspwm/polybar` (or `~/.local/state/bspwm/polybar`):
 
 ```bash
 sed -n '1,160p' ~/.local/state/bspwm/polybar/*.log
 ```
 
-`launcher.log` registra si la selección fue automática o explícita. Los demás
-archivos se separan por monitor y contienen la salida de Polybar. Lanzamientos
-simultáneos se serializan para evitar que dos procesos terminen o dupliquen la
-barra durante el inicio de la sesión.
+`launcher.log` tracks automatic or explicit module resolution. Monitor-specific
+files capture output from each Polybar instance. Concurrent launches are serialized
+to prevent duplicate instances during startup.
 
-Polybar detecta red y batería por capacidades. Si esa selección termina durante
-el arranque, el launcher reintenta una vez con RAM, almacenamiento y layout XKB
-como conjunto mínimo seguro.
-Puedes reemplazar la selección automática desde `local.env`:
+Polybar detects network and battery interfaces by capabilities. If dynamic
+discovery fails during boot, the launcher retries once with RAM, storage, and XKB
+layout as a safe fallback set.
+
+Override dynamic module selection via `local.env`:
 
 ```bash
 BSPWM_POLYBAR_RIGHT='pulseaudio memory filesystem xkeyboard'
 ```
 
-Una selección explícita tiene precedencia y no se reemplaza automáticamente.
-Una variable ausente, vacía o compuesta sólo por espacios selecciona el modo
-automático; el valor resuelto se exporta antes de ejecutar Polybar.
-En múltiples monitores, la selección derecha se aplica literalmente a cada
-barra. El tray no forma parte de ese override: el launcher lo reserva en el
-bloque central, a la derecha de fecha/hora, sólo para la primera barra. No
-incluyas `tray` en `BSPWM_POLYBAR_RIGHT` salvo que quieras reemplazar
-deliberadamente esa composición.
+Explicit overrides take precedence and are never silently replaced.
 
-El mensaje `libuv error while polling X connection: bad file descriptor` no
-identifica por sí solo un módulo concreto. Comprueba primero si las instancias
-actuales siguen activas y revisa las líneas anteriores de cada log, donde el
-launcher registra monitor, `modules-center` y `modules-right` utilizados.
-
-### Diagnóstico rápido
+### Quick Diagnostics
 
 ```bash
 bspc query -M --names
@@ -99,21 +87,20 @@ pgrep -a 'sxhkd|xcape|polybar|picom|dunst|playerctld'
 ./bin/bspwm doctor --profile desktop
 ```
 
-El perfil instala `xorg-xauth`, necesario para que display managers como Ly
-puedan autorizar la sesión X en una instalación mínima.
+The profile installs `xorg-xauth`, required by display managers like Ly to
+authorize X sessions in minimal installations.
 
-## Qué instala
+## Packages Installed
 
-Los perfiles son acumulativos:
+Profiles are cumulative:
 
-- `core`: Xorg, Xauth, XKB mediante `setxkbmap`, bspwm, sxhkd, GNU Stow y la
-  configuración mínima de sesión;
-- `desktop` (predeterminado): añade Polybar, Picom, Rofi, Dunst, `xcape`, audio,
-  capturas, fuentes y las aplicaciones utilizadas por los atajos públicos.
+- `core`: Xorg, Xauth, XKB via `setxkbmap`, bspwm, sxhkd, GNU Stow, and minimal
+  session configs;
+- `desktop` (default): adds Polybar, Picom, Rofi, Dunst, `feh`, `xcape`, audio,
+  screenshots, fonts, and utilities used by default shortcuts.
 
-La detección automática de paquetes intenta Shelly en CachyOS y después
-`paru`, `yay` y `pacman`. Puedes inspeccionar un backend o separar paquetes de
-dotfiles sin aplicar cambios:
+Automatic detection checks Shelly on CachyOS, then `paru`, `yay`, and `pacman`.
+You can audit without modifying the host:
 
 ```bash
 ./bin/bspwm bootstrap --profile desktop --backend paru
@@ -121,84 +108,71 @@ dotfiles sin aplicar cambios:
 ./bin/bspwm bootstrap --profile desktop --stow-only
 ```
 
-Los manifests y la procedencia de cada paquete están documentados en
-[`packages/README.md`](packages/README.md).
+Package manifests and origins are documented in [`packages/README.md`](packages/README.md).
 
-## Qué configura
+## Managed Scope
 
-Este repositorio administra exclusivamente:
+This repository exclusively manages:
 
-- `~/.config/bspwm` y las reglas de bspwm;
-- keybindings de sxhkd;
-- los layouts XKB de esta sesión X11, sin modificar la configuración global;
-- Polybar, Picom, Dunst y Rofi para esta sesión;
-- helpers X11 consumidos por esos componentes;
-- dependencias, bootstrap y validaciones de su propio alcance.
+- `~/.config/bspwm` and bspwm window rules;
+- sxhkd keybindings;
+- XKB layouts for this X11 session, without modifying global system policies;
+- Polybar, Picom, Dunst, and Rofi configurations;
+- X11 helper scripts consumed by these components;
+- Self-contained dependencies, bootstrap, and doctor validations.
 
-No administra display manager, drivers o GPU híbrida, secrets, wallpapers ni
-configuración privada. El paquete `bspwm` proporciona la entrada de sesión que
-Ly puede seleccionar.
+It does not manage display managers, hybrid GPU drivers, secrets, wallpapers, or
+private configurations. The `bspwm` package provides the session desktop entry
+selectable by Ly.
 
-La configuración conserva la experiencia Catppuccin del repositorio original,
-pero no depende de `/etc/skel`, `/usr/share/archcraft`, fuentes Feather ni
-nombres concretos de monitores, interfaces, baterías o backlights.
+Configurations preserve the Catppuccin visual experience, but remove any dependency
+on `/etc/skel`, `/usr/share/archcraft`, Feather fonts, or hardcoded device names.
 
-Alacritty se instala como terminal predeterminado, pero su configuración no se
-duplica aquí: al ser una aplicación compartida entre X11 y Wayland, el tema
-Catppuccin portable pertenece al perfil `desktop` del repositorio base de
-dotfiles. bspwm continúa funcionando con la configuración de Alacritty del
-usuario cuando ese repositorio opcional no está presente.
+Alacritty is installed as the default terminal, but its configuration is managed
+by the base dotfiles repository to allow seamless sharing between X11 and Wayland.
 
-## Comportamiento de la sesión
+## Session Lifecycle & Features
 
-- ocho workspaces se distribuyen entre los monitores detectados;
-- Polybar se lanza una vez por monitor;
-- Polybar ocupa todo el ancho sin margen ni radio exterior; muestra
-  launcher/workspaces, fecha y hora, volumen, RAM usada, almacenamiento raíz
-  usado y layout, y añade red y batería cuando existen;
-- el workspace activo conserva su icono y lo resalta con Catppuccin Pink; el
-  tray usa el renderizado nativo, junto a fecha/hora sólo en el primer monitor;
-- audio usa PipeWire/WirePlumber mediante `wpctl`;
-- mpv expone MPRIS mediante `mpv-mpris` y se controla con Playerctl;
-- screenshots se guardan en el directorio XDG `Pictures/Screenshots` y se
-  copian con Xclip cuando está disponible;
-- el power menu de Rofi usa una cuadrícula e iconos de Nerd Font;
-- el power menu sólo se abre mediante `Super+X`; no ocupa espacio en Polybar;
-- Picom aplica esquinas redondeadas y atenúa levemente las ventanas inactivas
-  para indicar foco sin un borde rectangular; el backend y el borde tradicional
-  pueden reemplazarse localmente;
-- ningún cambio de tema o detección de hardware reescribe el checkout.
+- Eight workspaces distributed across detected outputs;
+- Polybar launched per monitor with edge-to-edge layout and Catppuccin Pink accents;
+- Native system tray docked in the center block next to the clock on primary output;
+- Audio handled via PipeWire / WirePlumber (`wpctl`);
+- Media MPRIS control via `mpv-mpris` and Playerctl;
+- Screenshots saved to `Pictures/Screenshots` and copied to clipboard via Xclip;
+- Power menu accessible via `Super+X`;
+- Interactive wallpaper selector with `Super+Ctrl+W` scanning `~/Pictures/Wallpapers`;
+- Picom provides subtle rounded corners and dimming for inactive windows;
+- Runtime state or hardware detection never mutates versioned checkout files.
 
-### Atajos principales
+### Primary Keybindings
 
-| Atajo | Acción |
+| Shortcut | Action |
 | --- | --- |
-| `Super` | Aplicaciones con Rofi |
+| `Super` | Application launcher (Rofi) |
 | `Super+Enter` | Terminal |
-| `Super+Shift+Enter` | Terminal flotante |
-| `Super+D` / `Alt+F1` | Aplicaciones con Rofi |
-| `Alt+F2` | Runner |
-| `Super+W` | Selector de ventanas |
-| `Super+X` | Menú de sesión |
-| `Alt+Space` | Alternar layout XKB entre `us` y `latam` |
-| `Super+Shift+B/F/E/Y` | Brave, Thunar, Micro o Yazi |
-| `Print`, `Ctrl+Print`, `Super+Print` | Pantalla, ventana o área |
-| `Super+1..8` | Cambiar de workspace |
-| `Super+Shift+1..8` | Mover ventana y seguirla |
-| `Super+F`, `Super+Space` | Fullscreen o floating |
+| `Super+Shift+Enter` | Floating terminal |
+| `Super+D` / `Alt+F1` | Application launcher |
+| `Alt+F2` | Command runner |
+| `Super+W` | Window switcher |
+| `Super+X` | Power menu |
+| `Super+Ctrl+W` | Wallpaper selector (Rofi) |
+| `Alt+Space` | Toggle XKB layout between `us` and `latam` |
+| `Super+Shift+B/F/E/Y` | Launch Brave, Thunar, Micro, or Yazi |
+| `Print`, `Ctrl+Print`, `Super+Print` | Screenshot (screen, window, area) |
+| `Super+1..8` | Focus workspace |
+| `Super+Shift+1..8` | Move window to workspace and follow |
+| `Super+F`, `Super+Space` | Toggle fullscreen or floating |
 
-El mapa de sxhkd está en [`sxhkdrc`](home/bspwm/.config/bspwm/sxhkdrc).
-`Alt+Space` usa el selector de grupo nativo de XKB y por eso no aparece como
-binding de sxhkd.
+Key mappings are defined in [`sxhkdrc`](home/bspwm/.config/bspwm/sxhkdrc).
 
-## Configuración local
+## Local Machine Overrides
 
-La instalación funciona sin overrides. Si existen, se cargan en este orden:
+The session works without overrides. If present, they load in order:
 
-1. `~/.config/bspwm/local.env`, antes de los defaults públicos;
-2. `~/.config/bspwm/local.bspwmrc`, después de las reglas públicas.
+1. `~/.config/bspwm/local.env`, before public defaults;
+2. `~/.config/bspwm/local.bspwmrc`, after public rules.
 
-Ejemplo de `local.env`:
+Example `local.env`:
 
 ```bash
 BSPWM_TERMINAL=alacritty
@@ -210,7 +184,7 @@ BSPWM_XKB_LAYOUTS=us,latam
 BSPWM_XKB_OPTIONS=grp:alt_space_toggle
 BSPWM_BORDER_WIDTH=0
 
-# Ajustes opcionales de sesión.
+# Optional session toggles.
 BSPWM_PICOM_BACKEND=glx
 BSPWM_DISABLE_XKB=0
 BSPWM_DISABLE_XCAPE=0
@@ -219,43 +193,19 @@ BSPWM_DISABLE_POLYBAR=0
 BSPWM_DISABLE_DUNST=0
 BSPWM_DISABLE_POLKIT=0
 BSPWM_DISABLE_PLAYERCTLD=0
-BSPWM_RESTORE_WALLPAPER=0
-
-# BSPWM_XCAPE_MAPPING='Super_L=Alt_L|F1;Super_R=Alt_L|F1'
-# BSPWM_POLYBAR_RIGHT='pulseaudio memory filesystem xkeyboard'
-# BSPWM_MONITOR_ORDER='...'
-# BSPWM_WORKSPACES='1 2 3 4 5 6 7 8'
-# BSPWM_LOCK_COMMAND='...'
-# BSPWM_WALLPAPER_COMMAND='...'
+BSPWM_RESTORE_WALLPAPER=1
 ```
 
-Ambos archivos son ajenos al repositorio y pueden ser archivos regulares dentro
-de `~/.config/bspwm`: Stow enlaza cada archivo público con `--no-folding`. No
-deben contener secretos.
+## Unlinking Symlinks
 
-## Desinstalar los enlaces
-
-`unlink` no elimina paquetes ni archivos ajenos. Primero simula y sólo modifica
-con `--apply`:
+`unlink` removes only managed symlinks without deleting packages or user data:
 
 ```bash
 ./bin/bspwm unlink --profile desktop
 ./bin/bspwm unlink --profile desktop --apply
 ```
 
-## Detalles de seguridad y mantenimiento
-
-El bootstrap es dry-run por defecto, comprueba colisiones, ejecuta la simulación
-nativa de Stow, usa `--no-folding` y nunca ejecuta `--adopt`. Actualizar el
-sistema sigue siendo un paso separado y deliberado del usuario.
-
-El paquete Stow `home/bspwm` sólo puede contener rutas bajo `.config/bspwm`.
-El preflight rechaza cualquier contenido ajeno antes de invocar Stow. Durante
-pruebas de aplicaciones reales, usa siempre un home temporal: no asignes
-`home/bspwm` directamente a `$HOME`, porque las aplicaciones podrían escribir
-cookies, caches o estado generado dentro del source tree.
-
-Validaciones locales que no instalan paquetes ni modifican el home real:
+## Local Validation
 
 ```bash
 bash -n bin/bspwm tests/*.sh home/bspwm/.config/bspwm/bspwmrc \
@@ -267,11 +217,10 @@ shellcheck -x bin/bspwm tests/*.sh tests/fakes/session-command \
 git diff --check
 ```
 
-El inventario y la disposición de componentes heredados están en
-[`docs/archcraft-audit.md`](docs/archcraft-audit.md).
+Legacy component audit is available in [`docs/archcraft-audit.md`](docs/archcraft-audit.md).
 
-## Origen y licencia
+## License
 
-La configuración original se basó en Archcraft y conserva su atribución. Este
-repositorio se distribuye bajo GPL-3.0; consulta [`LICENSE`](LICENSE) y
+Original configuration was based on Archcraft and retains attribution. This repository
+is distributed under GPL-3.0; see [`LICENSE`](LICENSE) and
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
