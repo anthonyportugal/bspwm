@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+BSPWM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bspwm"
+ROFI_DIR="$BSPWM_DIR/themes/catppuccin/rofi"
+ROFI_LAUNCHER_THEME="$ROFI_DIR/launcher.rasi"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/bspwm"
+WALLPAPER_STATE="$STATE_DIR/wallpaper"
+
+if [[ -r "$BSPWM_DIR/local.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.env"
+fi
+
+notify() {
+  local summary=$1
+  local body=${2-}
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "bspwm" "$summary: $body"
+  else
+    printf 'bspwm-wallpaper: %s %s\n' "$summary" "$body" >&2
+  fi
+}
+
+wallpaper_directories() {
+  local dir
+  for dir in \
+    "${XDG_PICTURES_DIR:-$HOME/Pictures}/Wallpapers" \
+    "${XDG_PICTURES_DIR:-$HOME/Pictures}/wallpapers" \
+    "${XDG_DATA_HOME:-$HOME/.local/share}/wallpapers"; do
+    if [[ -d "$dir" ]]; then
+      printf '%s\n' "$dir"
+    fi
+  done
+}
+
+list_wallpapers() {
+  local dir
+  while IFS= read -r dir; do
+    find -L "$dir" -maxdepth 3 -type f \( \
+      -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o \
+      -iname '*.webp' -o -iname '*.avif' -o -iname '*.svg' \) 2>/dev/null
+  done < <(wallpaper_directories) | sort -u
+}
+
+apply_feh() {
+  local image=${1-}
+  if [[ -n "$image" && -r "$image" ]] && command -v feh >/dev/null 2>&1; then
+    feh --no-fehbg --bg-fill "$image"
+  elif [[ -r "$HOME/.fehbg" ]]; then
+    bash "$HOME/.fehbg"
+  fi
+}
+
+set_wallpaper() {
+  local target_file=$1
+  [[ -r "$target_file" ]] || {
+    notify "Error" "No se puede leer la imagen: $target_file"
+    return 1
+  }
+
+  local canonical_path
+  canonical_path=$(realpath -m -- "$target_file")
+  mkdir -p -- "$STATE_DIR"
+  printf '%s\n' "$canonical_path" > "$WALLPAPER_STATE"
+  apply_feh "$canonical_path"
+  notify "Wallpaper" "Fondo actualizado: ${canonical_path##*/}"
+}
+
+restore_wallpaper() {
+  if [[ -n "${BSPWM_WALLPAPER_COMMAND:-}" ]]; then
+    bash -lc "$BSPWM_WALLPAPER_COMMAND"
+    return 0
+  fi
+  if [[ -r "$WALLPAPER_STATE" ]]; then
+    local current_wallpaper
+    current_wallpaper=$(head -n 1 "$WALLPAPER_STATE" 2>/dev/null || true)
+    if [[ -n "$current_wallpaper" && -r "$current_wallpaper" ]]; then
+      apply_feh "$current_wallpaper"
+      return 0
+    fi
+  fi
+  if [[ -r "$HOME/.fehbg" ]]; then
+    bash "$HOME/.fehbg"
+  fi
+}
+
+clear_wallpaper() {
+  rm -f -- "$WALLPAPER_STATE"
+  notify "Wallpaper" "Selección de fondo eliminada"
+}
+
+select_wallpaper() {
+  command -v rofi >/dev/null 2>&1 || {
+    notify "Error" "Rofi no está instalado"
+    return 127
+  }
+
+  local files
+  mapfile -t files < <(list_wallpapers)
+
+  if (( ${#files[@]} == 0 )); then
+    notify "Wallpaper" "No se encontraron imágenes en ~/Pictures/Wallpapers"
+    return 0
+  fi
+
+  local formatted=()
+  local file
+  for file in "${files[@]}"; do
+    formatted+=("${file##*/}|${file}")
+  done
+
+  local selection
+  selection=$(printf '%s\n' "${formatted[@]}" | \
+    rofi -dmenu -i -p "Wallpaper" -theme "$ROFI_LAUNCHER_THEME" | cut -d'|' -f2 || true)
+
+  if [[ -n "$selection" && -r "$selection" ]]; then
+    set_wallpaper "$selection"
+  fi
+}
+
+case "${1:-select}" in
+  restore)
+    restore_wallpaper
+    ;;
+  set)
+    (( $# >= 2 )) || {
+      printf 'Uso: %s set <ruta-de-imagen>\n' "${0##*/}" >&2
+      exit 2
+    }
+    set_wallpaper "$2"
+    ;;
+  select)
+    select_wallpaper
+    ;;
+  clear)
+    clear_wallpaper
+    ;;
+  list)
+    list_wallpapers
+    ;;
+  *)
+    printf 'Uso: %s select|set|restore|clear|list\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac

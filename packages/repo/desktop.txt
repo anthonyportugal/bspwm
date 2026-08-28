@@ -2,6 +2,7 @@ alacritty
 bluez-utils
 brightnessctl
 dunst
+feh
 gvfs
 libnotify
 maim

@@ -197,7 +197,9 @@ if [[ "${BSPWM_DISABLE_PLAYERCTLD:-0}" != 1 ]] &&
 fi
 
 if [[ "${BSPWM_RESTORE_WALLPAPER:-1}" == 1 ]]; then
-  if [[ -n "${BSPWM_WALLPAPER_COMMAND:-}" ]]; then
+  if [[ -x "$BSPWM_DIR/scripts/bspwm-wallpaper" ]]; then
+    "$BSPWM_DIR/scripts/bspwm-wallpaper" restore &
+  elif [[ -n "${BSPWM_WALLPAPER_COMMAND:-}" ]]; then
     bash -lc "$BSPWM_WALLPAPER_COMMAND" &
   elif [[ -r "$HOME/.fehbg" ]]; then
     bash "$HOME/.fehbg" &

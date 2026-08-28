@@ -20,6 +20,9 @@ super + shift + {b,f,e,y}
 ctrl + alt + l
 	bspwm-rofi lock
 
+super + ctrl + w
+	bspwm-wallpaper select
+
 # Screenshots
 Print
 	bspwm-screenshot full
