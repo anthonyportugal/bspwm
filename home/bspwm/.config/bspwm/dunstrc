@@ -23,6 +23,7 @@
     frame_width = 2
     frame_color = "#F5C2E7"
     separator_color = frame
+    highlight = "#F5C2E7"
     gap_size = 6
 
     font = JetBrains Mono 9
