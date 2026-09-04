@@ -101,13 +101,18 @@ While this repository operates **100% standalone**, it seamlessly integrates wit
 | Shortcut | Action |
 | :--- | :--- |
 | `Super + Return` | Open Alacritty terminal |
+| `Super + Shift + Return` | Open floating Alacritty terminal |
 | `Super` / `Super + D` | Open Rofi application launcher |
+| `Super + W` | Open Rofi window switcher |
 | `Super + X` | Open Rofi power menu |
-| `Super + Ctrl + W` | Open interactive wallpaper selector |
+| `Super + Shift + {B,F,E,Y}` | Launch Browser, Files (Thunar), Editor (Micro), or Terminal Files (Yazi) |
+| `Super + Ctrl + W` | Open interactive wallpaper selector (Rofi / Feh) |
 | `Alt + Space` | Toggle keyboard layout between US and Latin America |
-| `Print` / `Shift + Print` | Interactive region / Fullscreen screenshot |
-| `Super + Alt + R` | Restart BSPWM session |
-| `Super + Alt + Q` | Quit BSPWM |
+| `Print` / `Super + Print` | Fullscreen / Interactive region screenshot |
+| `Ctrl + Print` | Capture focused window screenshot |
+| `Super + {C, Shift+C}` | Close / Kill focused window |
+| `Ctrl + Shift + R` | Restart BSPWM session |
+| `Ctrl + Shift + Q` | Quit BSPWM |
 
 ---
 

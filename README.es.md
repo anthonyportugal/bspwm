@@ -101,13 +101,18 @@ Aunque este repositorio funciona de forma **100% independiente**, se integra lim
 | Atajo | Acción |
 | :--- | :--- |
 | `Super + Return` | Abrir terminal Alacritty |
+| `Super + Shift + Return` | Abrir terminal Alacritty flotante |
 | `Super` / `Super + D` | Abrir menú de aplicaciones Rofi |
+| `Super + W` | Abrir selector de ventanas Rofi |
 | `Super + X` | Abrir menú de apagado Rofi |
-| `Super + Ctrl + W` | Abrir selector interactivo de fondos de pantalla |
+| `Super + Shift + {B,F,E,Y}` | Abrir Navegador, Archivos (Thunar), Editor (Micro) o Archivos en Terminal (Yazi) |
+| `Super + Ctrl + W` | Abrir selector interactivo de fondos de pantalla (Rofi / Feh) |
 | `Alt + Space` | Alternar distribución de teclado US / Latinoamérica |
-| `Print` / `Shift + Print` | Captura de región / Pantalla completa |
-| `Super + Alt + R` | Reiniciar sesión de BSPWM |
-| `Super + Alt + Q` | Cerrar sesión de BSPWM |
+| `Print` / `Super + Print` | Captura de pantalla completa / región interactiva |
+| `Ctrl + Print` | Capturar ventana enfocada |
+| `Super + {C, Shift+C}` | Cerrar / Matar ventana enfocada |
+| `Ctrl + Shift + R` | Reiniciar sesión de BSPWM |
+| `Ctrl + Shift + Q` | Cerrar sesión de BSPWM |
 
 ---
 

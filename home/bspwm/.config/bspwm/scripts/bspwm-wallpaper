@@ -26,9 +26,9 @@ notify() {
 wallpaper_directories() {
   local dir
   for dir in \
+    "${XDG_DATA_HOME:-$HOME/.local/share}/wallpapers" \
     "${XDG_PICTURES_DIR:-$HOME/Pictures}/Wallpapers" \
-    "${XDG_PICTURES_DIR:-$HOME/Pictures}/wallpapers" \
-    "${XDG_DATA_HOME:-$HOME/.local/share}/wallpapers"; do
+    "${XDG_PICTURES_DIR:-$HOME/Pictures}/wallpapers"; do
     if [[ -d "$dir" ]]; then
       printf '%s\n' "$dir"
     fi
@@ -36,12 +36,20 @@ wallpaper_directories() {
 }
 
 list_wallpapers() {
-  local dir
+  local dir file base
+  local -A seen=()
   while IFS= read -r dir; do
-    find -L "$dir" -maxdepth 3 -type f \( \
+    [[ -d "$dir" ]] || continue
+    while IFS= read -r file; do
+      base=${file##*/}
+      if [[ -z "${seen[$base]-}" ]]; then
+        seen[$base]=1
+        printf '%s\n' "$file"
+      fi
+    done < <(find -L "$dir" -maxdepth 3 -type f \( \
       -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o \
-      -iname '*.webp' -o -iname '*.avif' -o -iname '*.svg' \) 2>/dev/null
-  done < <(wallpaper_directories) | sort -u
+      -iname '*.webp' -o -iname '*.avif' -o -iname '*.svg' \) 2>/dev/null | sort)
+  done < <(wallpaper_directories)
 }
 
 apply_feh() {
