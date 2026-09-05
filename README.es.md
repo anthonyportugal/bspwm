@@ -104,21 +104,26 @@ Aunque este repositorio funciona de forma **100% independiente**, se integra lim
 
 | Atajo | Acción |
 | :--- | :--- |
-| `Super + Return` | Abrir terminal Alacritty |
+| `Super + Return` | Abrir terminal Alacritty (Mosaico) |
 | `Super + Shift + Return` | Abrir terminal Alacritty flotante |
-| `Super` / `Super + D` | Abrir menú de aplicaciones Rofi |
-| `Super + W` | Abrir selector de ventanas Rofi |
-| `Super + X` | Abrir menú de apagado Rofi |
-| `Super + Shift + {B,F,E,Y}` | Abrir Navegador, Archivos (Thunar), Editor (Micro) o Archivos en Terminal (Yazi) |
-| `Super + Ctrl + W` | Abrir selector interactivo de fondos de pantalla (Rofi / Feh) |
+| `Super + D` | Abrir menú de aplicaciones Rofi |
+| `Super + B` | Abrir navegador web predeterminado (Brave) |
+| `Super + E` | Abrir gestor de archivos gráfico (Thunar) |
+| `Super + L` | Bloquear pantalla de inmediato (slock / i3lock) |
+| `Super + X` | Abrir menú de apagado/sesión Rofi |
+| `Super + Shift + P` | Abrir selector interactivo de perfiles de energía (Rofi) |
+| `Super + Escape` | Reiniciar sesión de BSPWM y recargar SXHKD |
+| `Super + Shift + Escape` | Cerrar sesión de BSPWM |
+| `Super + T` | Alternar modo de ventana (*Tiled / Monocle*) |
+| `Super + N` | Alternar luz nocturna cálida (Redshift) |
+| `Super + W` | Seleccionar fondo de pantalla interactivo con Rofi (Feh) |
 | `Alt + Space` | Alternar distribución de teclado US / Latinoamérica |
-| `Print` / `Super + Print` | Captura de pantalla completa / región interactiva |
+| `Super + ?` / `Super + Shift + ?` | Abrir hoja de atajos interactiva |
+| `Print` / `Super + S` | Captura de pantalla completa |
+| `Super + Shift + S` | Captura de región interactiva con anotación en Satty |
 | `Super + R` / `Super + Shift + R` | Grabación de pantalla completa / región interactiva (FFmpeg) |
 | `Super + Alt + R` | Abrir menú de opciones de audio para grabación (Rofi) |
-| `Ctrl + Print` | Capturar ventana enfocada |
-| `Super + {C, Shift+C}` | Cerrar / Matar ventana enfocada |
-| `Super + Escape` | Reiniciar sesión de BSPWM |
-| `Super + Shift + Escape` | Cerrar sesión de BSPWM |
+| `Super + C` / `Super + Shift + C` | Cerrar / Forzar cierre de ventana enfocada |
 
 ---
 

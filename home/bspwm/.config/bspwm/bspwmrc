@@ -119,16 +119,40 @@ bspc config pointer_action3 resize_corner
 bspc wm --adopt-orphans
 bspc rule -r '*'
 
-# A small public ruleset. Personal application routing belongs in
-# local.bspwmrc, not in this public baseline.
+# Application window rules
+# Terminal principal: siempre tiled en desktop 1
 bspc rule -a bspwm-terminal desktop='^1' follow=on focus=on
-bspc rule -a bspwm-float state=floating follow=on focus=on
-bspc rule -a Brave-browser desktop='^2' follow=on focus=on
-bspc rule -a brave-browser desktop='^2' follow=on focus=on
-bspc rule -a Thunar desktop='^3' follow=on focus=on
-bspc rule -a mpv desktop='^7' follow=on focus=on
+bspc rule -a Alacritty desktop='^1' follow=on focus=on
+bspc rule -a alacritty desktop='^1' follow=on focus=on
 
-floating_classes=(Arandr Blueman-manager Lxappearance Nm-connection-editor Pavucontrol)
+# Terminal flotante
+bspc rule -a bspwm-float state=floating follow=on focus=on
+
+# Navegador web (Brave): tiled en el espacio activo
+bspc rule -a Brave-browser state=tiled follow=on focus=on
+bspc rule -a brave-browser state=tiled follow=on focus=on
+
+# Floating applications and utilities
+floating_classes=(
+  Arandr arandr
+  Blueman-manager blueman-manager
+  Eog eog
+  Feh feh
+  Imv imv
+  Loupe loupe
+  Lxappearance lxappearance
+  Mpv mpv
+  Nm-connection-editor nm-connection-editor
+  nwg-look
+  Overskride overskride
+  Pavucontrol pavucontrol
+  qView qview
+  Satty satty
+  Swayimg swayimg
+  Thunar thunar
+  Viewnior viewnior
+  Zathura zathura
+)
 for floating_class in "${floating_classes[@]}"; do
   bspc rule -a "$floating_class" state=floating follow=on focus=on
 done

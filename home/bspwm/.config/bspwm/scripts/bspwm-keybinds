@@ -20,7 +20,7 @@ keybindings=(
   "   Super + Enter                 Terminal Alacritty (Tiling)"
   "   Super + Shift + Enter         Terminal Alacritty (Ventana Flotante)"
   "󰍉   Super + D                     Lanzador de Aplicaciones (Rofi)"
-  "📁  Super + Shift + E             Explorador de Archivos (Thunar)"
+  "📁  Super + E                     Explorador de Archivos (Thunar Flotante)"
   "🌐  Super + B                     Navegador Web (Brave)"
   "󰖔   Super + N                     Alternar Luz Nocturna (On / Off)"
   "⚡  Super + Shift + P             Menú de Perfil de Energía"

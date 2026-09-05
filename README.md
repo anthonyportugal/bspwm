@@ -104,21 +104,26 @@ While this repository operates **100% standalone**, it seamlessly integrates wit
 
 | Shortcut | Action |
 | :--- | :--- |
-| `Super + Return` | Open Alacritty terminal |
+| `Super + Return` | Open Alacritty terminal (Tiling) |
 | `Super + Shift + Return` | Open floating Alacritty terminal |
-| `Super` / `Super + D` | Open Rofi application launcher |
-| `Super + W` | Open Rofi window switcher |
-| `Super + X` | Open Rofi power menu |
-| `Super + Shift + {B,F,E,Y}` | Launch Browser, Files (Thunar), Editor (Micro), or Terminal Files (Yazi) |
-| `Super + Ctrl + W` | Open interactive wallpaper selector (Rofi / Feh) |
+| `Super + D` | Open Rofi application launcher |
+| `Super + B` | Open default web browser (Brave) |
+| `Super + E` | Open graphical file manager (Thunar) |
+| `Super + L` | Lock screen immediately (slock / i3lock) |
+| `Super + X` | Open session power menu (Rofi) |
+| `Super + Shift + P` | Open interactive Power Profiles selector (Rofi) |
+| `Super + Escape` | Restart BSPWM session and reload SXHKD |
+| `Super + Shift + Escape` | Quit BSPWM session |
+| `Super + T` | Toggle layout (*Tiled / Monocle*) |
+| `Super + N` | Toggle warm night light (Redshift) |
+| `Super + W` | Select wallpaper from gallery via Rofi (Feh) |
 | `Alt + Space` | Toggle keyboard layout between US and Latin America |
-| `Print` / `Super + Print` | Fullscreen / Interactive region screenshot |
+| `Super + ?` / `Super + Shift + ?` | Open interactive keybindings cheat sheet |
+| `Print` / `Super + S` | Fullscreen screenshot |
+| `Super + Shift + S` | Interactive region screenshot with Satty annotation editor |
 | `Super + R` / `Super + Shift + R` | Fullscreen / Interactive region screen recording (FFmpeg) |
 | `Super + Alt + R` | Open screen recording audio options menu (Rofi) |
-| `Ctrl + Print` | Capture focused window screenshot |
-| `Super + {C, Shift+C}` | Close / Kill focused window |
-| `Super + Escape` | Restart BSPWM session |
-| `Super + Shift + Escape` | Quit BSPWM |
+| `Super + C` / `Super + Shift + C` | Close / Kill focused window |
 
 ---
 

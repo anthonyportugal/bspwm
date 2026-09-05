@@ -14,7 +14,7 @@ super + d
 super + b
 	bspwm-launch browser
 
-super + shift + e
+super + e
 	bspwm-launch files
 
 # Session & System Utilities
