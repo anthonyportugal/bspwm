@@ -46,6 +46,16 @@ super + shift + s
 Print
 	bspwm-screenshot full
 
+# Screen Recording
+super + r
+	bspwm-recording toggle
+
+super + shift + r
+	bspwm-recording toggle-region
+
+super + alt + r
+	bspwm-recording menu
+
 # Hardware keys degrade cleanly when a capability is absent.
 XF86MonBrightness{Up,Down}
 	bspwm-brightness {up,down}

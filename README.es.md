@@ -109,6 +109,8 @@ Aunque este repositorio funciona de forma **100% independiente**, se integra lim
 | `Super + Ctrl + W` | Abrir selector interactivo de fondos de pantalla (Rofi / Feh) |
 | `Alt + Space` | Alternar distribución de teclado US / Latinoamérica |
 | `Print` / `Super + Print` | Captura de pantalla completa / región interactiva |
+| `Super + R` / `Super + Shift + R` | Grabación de pantalla completa / región interactiva (FFmpeg) |
+| `Super + Alt + R` | Abrir menú de opciones de audio para grabación (Rofi) |
 | `Ctrl + Print` | Capturar ventana enfocada |
 | `Super + {C, Shift+C}` | Cerrar / Matar ventana enfocada |
 | `Super + Escape` | Reiniciar sesión de BSPWM |

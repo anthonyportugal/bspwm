@@ -109,6 +109,8 @@ While this repository operates **100% standalone**, it seamlessly integrates wit
 | `Super + Ctrl + W` | Open interactive wallpaper selector (Rofi / Feh) |
 | `Alt + Space` | Toggle keyboard layout between US and Latin America |
 | `Print` / `Super + Print` | Fullscreen / Interactive region screenshot |
+| `Super + R` / `Super + Shift + R` | Fullscreen / Interactive region screen recording (FFmpeg) |
+| `Super + Alt + R` | Open screen recording audio options menu (Rofi) |
 | `Ctrl + Print` | Capture focused window screenshot |
 | `Super + {C, Shift+C}` | Close / Kill focused window |
 | `Super + Escape` | Restart BSPWM session |
