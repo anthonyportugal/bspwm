@@ -24,10 +24,10 @@ while (( $# > 0 )); do
 done
 
 case "$mode" in
-  full|window|area)
+  full|window|area|annotate)
     ;;
   *)
-    printf 'Uso: %s full|window|area [--delay SEGUNDOS]\n' "${0##*/}" >&2
+    printf 'Uso: %s full|window|area|annotate [--delay SEGUNDOS]\n' "${0##*/}" >&2
     exit 2
     ;;
 esac
@@ -55,12 +55,19 @@ case "$mode" in
     window_id=$(bspc query -N -n focused)
     maim_args+=(-i "$window_id")
     ;;
-  area)
+  area|annotate)
     maim_args+=(-s -b 2 -c '0.506,0.631,0.756,0.35')
     ;;
 esac
 
 maim "${maim_args[@]}" "$screenshot_path"
+
+if [[ "$mode" == "annotate" ]] && command -v satty >/dev/null 2>&1; then
+  temp_file=$(mktemp --suffix=.png "${TMPDIR:-/tmp}/satty-capture.XXXXXX")
+  cp -f -- "$screenshot_path" "$temp_file"
+  satty --filename "$temp_file" --output-filename "$screenshot_path" </dev/null || true
+  rm -f -- "$temp_file"
+fi
 
 if command -v xclip >/dev/null 2>&1; then
   xclip -selection clipboard -t image/png -i "$screenshot_path"

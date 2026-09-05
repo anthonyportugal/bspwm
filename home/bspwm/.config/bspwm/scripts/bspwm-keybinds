@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+BSPWM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bspwm"
+ROFI_DIR="$BSPWM_DIR/themes/catppuccin/rofi"
+ROFI_LAUNCHER_THEME="$ROFI_DIR/launcher.rasi"
+
+if [[ -r "$BSPWM_DIR/local.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.env"
+fi
+
+command -v rofi >/dev/null 2>&1 || {
+  printf 'bspwm-keybinds: rofi no está instalado\n' >&2
+  exit 127
+}
+
+keybindings=(
+  "   Super + Enter                 Terminal Alacritty (Tiling)"
+  "   Super + Shift + Enter         Terminal Alacritty (Ventana Flotante)"
+  "󰍉   Super + D                     Lanzador de Aplicaciones (Rofi)"
+  "📁  Super + Shift + E             Explorador de Archivos (Thunar)"
+  "🌐  Super + B                     Navegador Web (Brave)"
+  "󰖔   Super + N                     Alternar Luz Nocturna (On / Off)"
+  "⚡  Super + Shift + P             Menú de Perfil de Energía"
+  "🖼️   Super + W                     Selector de Wallpapers"
+  "📸  Super + S / Print             Captura de Pantalla Completa"
+  "📸  Super + Shift + S             Captura de Pantalla con Anotación (Satty)"
+  "🔒  Super + L                     Bloquear Pantalla"
+  "🚪  Super + X                     Menú de Salida / Apagado"
+  "🔄  Super + Shift + R             Recargar Configuración (BSPWM + SXHKD)"
+  "❌  Super + C                     Cerrar Ventana Activa"
+  "❌  Super + Shift + C             Forzar Cierre de Ventana (Kill)"
+  "🚪  Super + Shift + Q             Salir de la Sesión"
+  "🪟  Super + Space                 Alternar Ventana Flotante"
+  "🪟  Super + F                     Alternar Pantalla Completa"
+  "🪟  Super + T                     Cambiar Layout (Tiled / Monocle)"
+  "⌨️   Alt + Space                   Cambiar Distribución de Teclado (US / ES)"
+  "🪟  Super + Flechas               Mover Foco de Ventana"
+  "🪟  Super + Shift + Flechas       Intercambiar Posición de Ventana"
+  "🪟  Super + 1 .. 9                Cambiar a Espacio de Trabajo 1-9"
+  "🪟  Super + Shift + 1 .. 9        Mover Ventana al Espacio 1-9"
+  "🖱️   Super + Clic Izquierdo        Mover Ventana Flotante"
+  "🖱️   Super + Clic Derecho          Redimensionar Ventana Flotante"
+  "🔆  Teclas Fn / Brightness        Subir / Bajar Brillo de Pantalla"
+  "🔊  Teclas Multimedia             Subir / Bajar / Mutear Volumen"
+  "❓  Super + ?                     Ver esta Guía de Atajos de Teclado"
+)
+
+printf '%s\n' "${keybindings[@]}" | \
+  rofi -dmenu -i \
+    -p "Atajos ❯" \
+    -mesg "Guía de Atajos de Teclado (BSPWM + Catppuccin)" \
+    -theme "$ROFI_LAUNCHER_THEME" \
+    -theme-str 'configuration { show-icons: false; } window { width: 780px; } listview { lines: 15; } element-icon { enabled: false; }' || true

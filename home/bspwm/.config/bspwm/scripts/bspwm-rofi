@@ -35,14 +35,22 @@ notify_failure() {
 }
 
 lock_session() {
-  if [[ -n "${BSPWM_LOCK_COMMAND:-}" ]]; then
+  if [[ -x "$BSPWM_DIR/scripts/bspwm-lock" ]]; then
+    exec "$BSPWM_DIR/scripts/bspwm-lock"
+  elif command -v bspwm-lock >/dev/null 2>&1; then
+    exec bspwm-lock
+  elif [[ -n "${BSPWM_LOCK_COMMAND:-}" ]]; then
     bash -lc "$BSPWM_LOCK_COMMAND"
   elif command -v betterlockscreen >/dev/null 2>&1; then
     betterlockscreen --lock
-  elif command -v loginctl >/dev/null 2>&1; then
+  elif command -v i3lock >/dev/null 2>&1; then
+    i3lock -c 1e1e2e -n
+  elif command -v slock >/dev/null 2>&1; then
+    slock
+  elif command -v loginctl >/dev/null 2>&1 && pgrep -x xss-lock >/dev/null 2>&1; then
     loginctl lock-session
   else
-    notify_failure "No hay un locker configurado"
+    notify_failure "No se encontró un bloqueador de pantalla (instala i3lock-color)"
   fi
 }
 

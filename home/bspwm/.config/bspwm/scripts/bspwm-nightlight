@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+BSPWM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bspwm"
+if [[ -r "$BSPWM_DIR/local.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.env"
+fi
+
+temp="${BSPWM_NIGHT_TEMPERATURE:-3500}"
+command_name="${1:-toggle}"
+
+runtime_dir="${XDG_RUNTIME_DIR:-/tmp}/bspwm-$UID"
+mkdir -p "$runtime_dir"
+state_file="$runtime_dir/nightlight.state"
+
+is_enabled() {
+  [[ -f "$state_file" ]] && [[ "$(<"$state_file")" == "on" ]]
+}
+
+enable() {
+  if command -v redshift >/dev/null 2>&1; then
+    pkill -9 -x redshift 2>/dev/null || true
+    sleep 0.05
+    redshift -P -O "$temp" >/dev/null 2>&1 &
+  elif command -v gammastep >/dev/null 2>&1; then
+    pkill -9 -x gammastep 2>/dev/null || true
+    sleep 0.05
+    gammastep -m randr -O "$temp" >/dev/null 2>&1 &
+  else
+    if command -v notify-send >/dev/null 2>&1; then
+      notify-send "Luz Nocturna" "redshift o gammastep no están instalados"
+    fi
+    printf 'bspwm-nightlight: redshift ni gammastep están instalados\n' >&2
+    exit 127
+  fi
+
+  printf 'on\n' > "$state_file"
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send -h string:x-dunst-stack-tag:bspwm-nightlight "Luz Nocturna" "Activada (${temp}K)"
+  fi
+}
+
+disable() {
+  pkill -x redshift 2>/dev/null || true
+  pkill -x gammastep 2>/dev/null || true
+  if command -v redshift >/dev/null 2>&1; then
+    redshift -x >/dev/null 2>&1 || true
+  fi
+  rm -f "$state_file"
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send -h string:x-dunst-stack-tag:bspwm-nightlight "Luz Nocturna" "Desactivada"
+  fi
+}
+
+status_polybar() {
+  if is_enabled; then
+    printf '%%{F#F9E2AF}%%{T2}󰖔%%{T-} %sK%%{F-}\n' "$temp"
+  else
+    printf '%%{F#6C7086}%%{T2}󰖔%%{T-} off%%{F-}\n'
+  fi
+}
+
+case "$command_name" in
+  on)
+    enable
+    ;;
+  off)
+    disable
+    ;;
+  toggle)
+    if is_enabled; then
+      disable
+    else
+      enable
+    fi
+    ;;
+  status|polybar)
+    status_polybar
+    ;;
+  restore)
+    rm -f "$state_file"
+    pkill -x redshift 2>/dev/null || true
+    pkill -x gammastep 2>/dev/null || true
+    ;;
+  *)
+    printf 'Uso: %s toggle|on|off|status|restore\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac

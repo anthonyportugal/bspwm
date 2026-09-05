@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+BSPWM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bspwm"
+ROFI_DIR="$BSPWM_DIR/themes/catppuccin/rofi"
+
+if [[ -r "$BSPWM_DIR/local.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.env"
+fi
+
+command_name=${1:-next}
+
+command -v powerprofilesctl >/dev/null 2>&1 || {
+  if [[ "$command_name" == "polybar" || "$command_name" == "status" ]]; then
+    exit 0
+  fi
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "Perfil de Energía" "power-profiles-daemon no está instalado"
+  fi
+  printf 'bspwm-power-profile: powerprofilesctl no está instalado\n' >&2
+  exit 127
+}
+
+get_current() {
+  powerprofilesctl get 2>/dev/null || printf 'balanced\n'
+}
+
+set_profile() {
+  local target=$1
+  if powerprofilesctl set "$target" 2>/dev/null; then
+    local label icon
+    case "$target" in
+      power-saver) label="Ahorro de energía"; icon="󰌪" ;;
+      balanced)    label="Modo equilibrado"; icon="󰾅" ;;
+      performance) label="Alto rendimiento"; icon="󰓅" ;;
+      *)           label="$target"; icon="" ;;
+    esac
+    if command -v notify-send >/dev/null 2>&1; then
+      notify-send -h string:x-dunst-stack-tag:bspwm-power "Perfil de Energía" "$icon $label activo"
+    fi
+  fi
+}
+
+polybar_status() {
+  local current
+  current=$(get_current)
+  case "$current" in
+    power-saver)
+      printf '%%{F#A6E3A1}%%{T2}󰌪%%{T-} saver%%{F-}\n'
+      ;;
+    performance)
+      printf '%%{F#F38BA8}%%{T2}󰓅%%{T-} perf%%{F-}\n'
+      ;;
+    balanced|*)
+      printf '%%{F#89B4FA}%%{T2}󰾅%%{T-} balanced%%{F-}\n'
+      ;;
+  esac
+}
+
+case "$command_name" in
+  next|up)
+    current=$(get_current)
+    case "$current" in
+      power-saver) set_profile balanced ;;
+      balanced)    set_profile performance ;;
+      performance) set_profile power-saver ;;
+      *)           set_profile balanced ;;
+    esac
+    ;;
+  prev|down)
+    current=$(get_current)
+    case "$current" in
+      performance) set_profile balanced ;;
+      balanced)    set_profile power-saver ;;
+      power-saver) set_profile performance ;;
+      *)           set_profile power-saver ;;
+    esac
+    ;;
+  select|menu)
+    current=$(get_current)
+    tag_saver=""
+    tag_balanced=""
+    tag_perf=""
+    case "$current" in
+      power-saver) tag_saver="  [Activo]" ;;
+      balanced)    tag_balanced="  [Activo]" ;;
+      performance) tag_perf="  [Activo]" ;;
+    esac
+
+    options=(
+      "󰌪  Ahorro de Energía (power-saver)${tag_saver}"
+      "󰾅  Modo Equilibrado (balanced)${tag_balanced}"
+      "󰓅  Alto Rendimiento (performance)${tag_perf}"
+    )
+
+    selected=$(printf '%s\n' "${options[@]}" | \
+      rofi -dmenu -i \
+        -p "Perfil de Energía ❯" \
+        -mesg "Selecciona un perfil de energía del sistema" \
+        -theme "$ROFI_DIR/launcher.rasi" \
+        -theme-str 'configuration { show-icons: false; } window { width: 500px; } listview { lines: 3; } element-icon { enabled: false; }' || true)
+
+    case "$selected" in
+      *"power-saver"*) set_profile power-saver ;;
+      *"balanced"*)    set_profile balanced ;;
+      *"performance"*) set_profile performance ;;
+    esac
+    ;;
+  polybar|status)
+    polybar_status
+    ;;
+  set)
+    set_profile "${2:-balanced}"
+    ;;
+  get)
+    get_current
+    ;;
+  *)
+    printf 'Uso: %s next|prev|select|polybar|set <profile>|get\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac

@@ -1,5 +1,5 @@
 # Based on the Archcraft bspwm keybindings.
-# Copyright (C) 2020-2026 Aditya Shakya <adi1090x@gmail.com>
+# Harmonized with MangoWM standards.
 
 # Applications
 super + Return
@@ -8,33 +8,43 @@ super + Return
 super + shift + Return
 	bspwm-terminal --float
 
-super + {d,w,x}
-	bspwm-rofi {drun,window,power}
+super + d
+	bspwm-rofi drun
 
-alt + {F1,F2}
-	bspwm-rofi {drun,run}
+super + b
+	bspwm-launch browser
 
-super + shift + {b,f,e,y}
-	bspwm-launch {browser,files,editor,terminal-files}
+super + shift + e
+	bspwm-launch files
 
-ctrl + alt + l
-	bspwm-rofi lock
+# Session & System Utilities
+super + l
+	bspwm-lock
 
-super + ctrl + w
+super + x
+	bspwm-rofi power
+
+super + shift + p
+	bspwm-power-profile select
+
+super + n
+	bspwm-nightlight toggle
+
+super + w
 	bspwm-wallpaper select
 
+super + shift + slash
+	bspwm-keybinds
+
 # Screenshots
-Print
+super + s
 	bspwm-screenshot full
 
-alt + Print
-	bspwm-screenshot full --delay 5
+super + shift + s
+	bspwm-screenshot annotate
 
-ctrl + Print
-	bspwm-screenshot window
-
-super + Print
-	bspwm-screenshot area
+Print
+	bspwm-screenshot full
 
 # Hardware keys degrade cleanly when a capability is absent.
 XF86MonBrightness{Up,Down}
@@ -46,53 +56,20 @@ XF86Audio{RaiseVolume,LowerVolume,Mute,MicMute}
 XF86Audio{Next,Prev,Play,Stop}
 	playerctl --player=playerctld {next,previous,play-pause,stop}
 
-alt + {F6,F7,F8}
-	playerctl --player=playerctld {play-pause,previous,next}
+# Window Lifecycle & Layouts
+super + c
+	bspc node -c
 
-# bspwm
-super + shift + h
-	bspwm-window-mask
+super + shift + c
+	bspc node -k
 
-super + {_,shift + }c
-	bspc node -{c,k}
+super + shift + q
+	bspc quit
 
-ctrl + shift + {q,r}
-	bspc {quit,wm -r}
+super + shift + r
+	bspc wm -r
 
-super + Escape
-	pkill -USR1 -u "$(id -u)" -x sxhkd
-
-ctrl + alt + {Left,Right}
-	bspc desktop -f {prev.local,next.local}
-
-super + {1-8}
-	bspc desktop -f '^{1-8}'
-
-super + shift + {1-8}
-	bspc node -d '^{1-8}' --follow
-
-super + ctrl + shift + {Left,Right}
-	bspc node -d {prev,next} --follow
-
-super + {_,shift + }{Left,Down,Up,Right}
-	bspc node -{f,s} {west,south,north,east}
-
-super + alt + shift + {Left,Down,Up,Right}
-	bspc node -v {-20 0,0 20,0 -20,20 0}
-
-super + control + {Left,Right,Up,Down}
-	bspc node -z {left -20 0,right 20 0,top 0 -20,bottom 0 20}
-
-super + alt + {Left,Right,Up,Down}
-	bspc node -z {left 20 0,right -20 0,top 0 20,bottom 0 -20}
-
-super + {h,v,q}
-	bspc node -p {east,south,cancel}
-
-super + ctrl + {1-9}
-	bspc node -o 0.{1-9}
-
-super + l
+super + t
 	bspc desktop -l next
 
 super + f
@@ -101,14 +78,29 @@ super + f
 super + space
 	bspc node -t '~floating'
 
-super + shift + space
-	bspc node -t '~pseudo_tiled'
+# Focus and swap
+super + {_,shift + }{Left,Down,Up,Right}
+	bspc node -{f,s} {west,south,north,east}
 
-super + ctrl + {m,x,y,z}
-	bspc node -g {marked,locked,sticky,private}
+super + {1-9}
+	bspc desktop -f '^{1-9}'
 
-alt + {_,shift + }Tab
-	bspc node -f {next.local,prev.local}
+super + shift + {1-9}
+	bspc node -d '^{1-9}' --follow
 
-super + {Tab,grave}
-	bspc {node,desktop} -f last
+# Navigation & History
+alt + Tab
+	bspc node -f next.local
+
+super + Tab
+	bspc node -f last
+
+# Resizing
+super + control + {Left,Right,Up,Down}
+	bspc node -z {left -20 0,right 20 0,top 0 -20,bottom 0 20}
+
+super + alt + {Left,Right,Up,Down}
+	bspc node -z {left 20 0,right -20 0,top 0 20,bottom 0 -20}
+
+super + Escape
+	pkill -USR1 -u "$(id -u)" -x sxhkd
