@@ -9,7 +9,7 @@ Sesión de escritorio X11 autónoma, pública y minimalista basada en **BSPWM** 
 </p>
 
 > [!NOTE]
-> **Trabajo en progreso:** Este repositorio se encuentra en desarrollo y mantenimiento activo. Ofrece una experiencia de escritorio X11 independiente y se integra con los dotfiles base en [anthonyportugal/dotfiles](https://github.com/anthonyportugal/dotfiles) (rama `refactor/modular-dotfiles`). *(Nota: Este repositorio pasará a llamarse `dotfiles-bspwm` al finalizar la migración).*
+> **Trabajo en progreso:** Este repositorio ofrece una experiencia de escritorio X11 independiente y se integra con los dotfiles base en [anthonyportugal/dotfiles](https://github.com/anthonyportugal/dotfiles) (rama `refactor/modular-dotfiles`).
 
 ---
 
@@ -19,20 +19,20 @@ La configuración de BSPWM está estructurada en perfiles acumulativos administr
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│                       ECOSISTEMA BSPWM DESKTOP (X11)                   │
+│                       BSPWM DESKTOP ECOSYSTEM (X11)                    │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                   PERFIL DESKTOP (Visual & UX)                   │  │
-│  │  • Barra de estado: Polybar (Catppuccin Pink, Módulos Dinámicos) │  │
-│  │  • Lanzador de apps y menú de energía: Rofi                      │  │
-│  │  • Notificaciones de escritorio: Dunst                           │  │
-│  │  • Compositor y sombras: Picom (GLX / XRender)                   │  │
-│  │  • Fondos y multimedia: Feh, Playerctl, MPV-MPRIS                │  │
+│  │                    DESKTOP PROFILE (UX & Tools)                  │  │
+│  │  • Barra de Estado: Polybar (Catppuccin Pink, Detección Dinámica)│  │
+│  │  • Menú de Aplicaciones y Apagado: Rofi                          │  │
+│  │  • Notificaciones: Dunst                                         │  │
+│  │  • Compositor y Sombras: Picom (GLX / XRender)                   │  │
+│  │  • Fondo de Pantalla y Multimedia: Feh, Playerctl, MPV-MPRIS     │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │                     PERFIL CORE (Base Minimal X11)               │  │
-│  │  • Administrador de ventanas: BSPWM                              │  │
-│  │  • Demonio de atajos de teclado: SXHKD                           │  │
-│  │  • Autenticación X11 y teclados: Xauth, Setxkbmap (US / Latam)   │  │
+│  │                      CORE PROFILE (Minimal X11)                  │  │
+│  │  • Gestor de Ventanas: BSPWM (Binary Space Partitioning)         │  │
+│  │  • Daemon de Atajos: SXHKD                                       │  │
+│  │  • Auth X11 y Disposición de Teclado: Xauth, Setxkbmap (US/Latam)│  │
 │  │  • Terminal: Alacritty (Tema Catppuccin)                         │  │
 │  └──────────────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────────────┘
@@ -40,28 +40,28 @@ La configuración de BSPWM está estructurada en perfiles acumulativos administr
 
 ---
 
-## 🛠️ Stack Aprobado
+## 🛠️ Componentes Aprobados
 
-| Componente | Selección | Descripción |
+| Capacidad | Selección | Descripción |
 | :--- | :--- | :--- |
-| **Administrador de Ventanas** | `bspwm` | Gestor de mosaico basado en partición binaria |
-| **Atajos de Teclado** | `sxhkd` | Demonio simple de teclas de X11 |
-| **Barra de Estado** | `polybar` | Barra completa de borde a borde con detección dinámica de batería y red |
-| **Lanzador de Apps** | `rofi` | Menú de aplicaciones y menú de energía |
+| **Gestor de Ventanas** | `bspwm` | Gestor de ventanas tipo tiling de particionado binario |
+| **Daemon de Atajos** | `sxhkd` | Daemon simple de atajos de teclado para X |
+| **Barra de Estado** | `polybar` | Barra moderna con detección dinámica de red y batería |
+| **Lanzador de Apps** | `rofi` | Menú de aplicaciones y apagado del sistema |
 | **Compositor** | `picom` | Sombras, esquinas redondeadas y opacidad |
-| **Notificaciones** | `dunst` | Servidor ligero de notificaciones |
+| **Notificaciones** | `dunst` | Servidor de notificaciones ligero |
 | **Fondo de Pantalla** | `feh` | Gestor de fondos con selector interactivo |
-| **Audio / Multimedia** | PipeWire y Playerctl | Audio moderno con integración MPRIS |
+| **Audio / Media** | PipeWire & Playerctl | Stack de audio moderno con soporte de control MPRIS |
 
 ---
 
 ## 🚀 Instalación y Uso Rápido
 
-### 1. Instalación Standalone (Recomendado)
+### 1. Despliegue Standalone (Recomendado)
 
 ```bash
 mkdir -p "$HOME/.dotfiles/wm"
-git clone https://github.com/anthonyportugal/bspwm.git "$HOME/.dotfiles/wm/bspwm"
+git clone https://github.com/anthonyportugal/dotfiles-bspwm.git "$HOME/.dotfiles/wm/bspwm"
 cd "$HOME/.dotfiles/wm/bspwm"
 ```
 

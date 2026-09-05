@@ -9,7 +9,7 @@ Autonomous, public, and minimal X11 desktop session based on **BSPWM** (Binary S
 </p>
 
 > [!NOTE]
-> **Work in progress:** This repository is in active development and maintenance. It provides an independent X11 desktop experience and integrates with the base dotfiles at [anthonyportugal/dotfiles](https://github.com/anthonyportugal/dotfiles) (branch `refactor/modular-dotfiles`). *(Note: This repository will be renamed to `dotfiles-bspwm` upon migration completion).*
+> **Work in progress:** This repository provides an independent X11 desktop experience and integrates with the base dotfiles at [anthonyportugal/dotfiles](https://github.com/anthonyportugal/dotfiles) (branch `refactor/modular-dotfiles`).
 
 ---
 
@@ -61,7 +61,7 @@ The BSPWM configuration is organized into cumulative profiles managed with [GNU 
 
 ```bash
 mkdir -p "$HOME/.dotfiles/wm"
-git clone https://github.com/anthonyportugal/bspwm.git "$HOME/.dotfiles/wm/bspwm"
+git clone https://github.com/anthonyportugal/dotfiles-bspwm.git "$HOME/.dotfiles/wm/bspwm"
 cd "$HOME/.dotfiles/wm/bspwm"
 ```
 
