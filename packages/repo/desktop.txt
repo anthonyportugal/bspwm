@@ -3,6 +3,7 @@ bluez-utils
 brightnessctl
 dunst
 feh
+ffmpeg
 gvfs
 libnotify
 maim
@@ -20,6 +21,7 @@ power-profiles-daemon
 redshift
 rofi
 satty
+slop
 thunar
 ttf-jetbrains-mono
 ttf-nerd-fonts-symbols-mono

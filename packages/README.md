@@ -39,6 +39,8 @@ atajos que mantienen Super presionada. `util-linux` proporciona `flock`, usado
 para impedir lanzamientos concurrentes de Polybar durante el arranque.
 `i3lock-color` (AUR) proporciona el bloqueador con reloj, fecha y anillo
 Catppuccin en paridad completa con MangoWM; se declara en `packages/aur/desktop.txt`.
+`ffmpeg` y `slop` proporcionan la grabación de pantalla completa y por región
+en paridad funcional con Wayland.
 
 `external/` documenta fuentes que requerirían otro adaptador; actualmente no
 selecciona ninguna.
