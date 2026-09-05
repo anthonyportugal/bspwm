@@ -27,7 +27,9 @@ case "$command_name" in
     exit 1
     ;;
   playerctl)
-    if [[ " $* " == *" status "* ]]; then
+    if [[ " $* " == *" -l "* || " $* " == *" --list-all "* ]]; then
+      printf 'fake-player\n'
+    elif [[ " $* " == *" status "* ]]; then
       printf 'Playing\n'
     elif [[ " $* " == *" metadata "* ]]; then
       printf 'Artist — Track\n'
@@ -51,7 +53,7 @@ case "$command_name" in
       "${MONITOR:-auto}" "${BSPWM_POLYBAR_CENTER:-}" \
       "${BSPWM_POLYBAR_RIGHT:-}" >> "${BSPWM_TEST_LOG:?}"
     if [[ "${BSPWM_TEST_POLYBAR_FAIL_AUTO:-0}" == 1 ]] &&
-       [[ "${BSPWM_POLYBAR_RIGHT:-}" != 'memory filesystem xkeyboard' ]]; then
+       [[ "${BSPWM_POLYBAR_RIGHT:-}" != 'memory xkeyboard' ]]; then
       exit 1
     fi
     if [[ "${BSPWM_TEST_POLYBAR_FAIL_AUTO:-0}" == 1 ]]; then

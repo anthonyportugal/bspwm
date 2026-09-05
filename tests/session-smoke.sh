@@ -41,6 +41,7 @@ fake_commands=(
   bluetoothctl
   brave
   bspc
+  i3lock
   notify-send
   pgrep
   pkill
@@ -99,6 +100,14 @@ fi
 "$CONFIG_ROOT/scripts/bspwm-launch" browser
 grep -q '^brave$' "$TEST_LOG" || fail "el launcher no utilizó Brave"
 
+BSPWM_TEST_I3LOCK_COLOR=1 "$CONFIG_ROOT/scripts/bspwm-lock"
+grep -q '^i3lock --color=1e1e2eff --clock --indicator.*--keylayout 2' "$TEST_LOG" || \
+  fail "bspwm-lock no invocó i3lock-color con la paleta Catppuccin y keylayout nativo"
+
+BSPWM_TEST_I3LOCK_COLOR=0 "$CONFIG_ROOT/scripts/bspwm-lock"
+grep -q '^i3lock -c 1e1e2e -n$' "$TEST_LOG" || \
+  fail "bspwm-lock no degradó limpiamente a i3lock estándar"
+
 media_output=$("$CONFIG_ROOT/scripts/polybar-media")
 [[ "$media_output" == *"Artist — Track"* ]] || fail "el módulo multimedia no leyó Playerctl"
 
@@ -110,7 +119,7 @@ for geometry_setting in 'width = 100%' 'offset-x = 0' 'offset-y = 0' 'radius = 0
   grep -Fxq "$geometry_setting" "$POLYBAR_THEME/config.ini" ||
     fail "Polybar no conservó la geometría anclada: $geometry_setting"
 done
-grep -Fxq "modules-center = \${env:BSPWM_POLYBAR_CENTER:date tray}" \
+grep -Fxq "modules-center = \${env:BSPWM_POLYBAR_CENTER:bspwm tray}" \
   "$POLYBAR_THEME/config.ini" || fail "el tray no quedó en el bloque central"
 grep -Fxq 'ACCENT = #F5C2E7' "$POLYBAR_THEME/colors.ini" ||
   fail "Polybar no usa Catppuccin Pink como acento"
@@ -150,37 +159,37 @@ if [[ $(grep -c 'se ignoró un launcher concurrente' \
 fi
 
 initial_polybar_lines=$(grep '^polybar monitor=.* center=.* modules=' "$TEST_LOG" |
-  grep -v ' modules=memory filesystem xkeyboard$' || true)
-if [[ $(grep -c ' center=date tray ' <<< "$initial_polybar_lines") -ne 1 ]]; then
-  fail "el tray no quedó junto a la fecha en una única barra"
+  grep -v ' modules=memory xkeyboard$' || true)
+if [[ $(grep -c ' center=bspwm tray ' <<< "$initial_polybar_lines") -ne 1 ]]; then
+  fail "el tray no quedó junto a los workspaces en una única barra"
 fi
-if ! grep -q ' modules=pulseaudio memory filesystem' <<< "$initial_polybar_lines"; then
-  fail "Polybar no incluyó RAM y filesystem en la selección automática"
+if ! grep -q ' modules=pulseaudio memory' <<< "$initial_polybar_lines"; then
+  fail "Polybar no incluyó RAM en la selección automática"
 fi
 if grep -q ' modules=.*tray' <<< "$initial_polybar_lines"; then
   fail "el tray permaneció mezclado con las métricas derechas"
 fi
-if grep -q ' power\($\| \)' <<< "$initial_polybar_lines"; then
-  fail "Polybar conservó el botón power en la selección automática"
+if ! grep -q ' power$' <<< "$initial_polybar_lines"; then
+  fail "Polybar no incluyó el botón power al final de la selección automática"
 fi
 fallback_polybar_lines=$(grep \
-  '^polybar monitor=.* center=.* modules=memory filesystem xkeyboard$' \
+  '^polybar monitor=.* center=.* modules=memory xkeyboard$' \
   "$TEST_LOG" || true)
 if [[ $(grep -c '^polybar ' <<< "$fallback_polybar_lines") -ne 2 ]]; then
   fail "Polybar no aplicó el fallback seguro por monitor"
 fi
-if [[ $(grep -c ' center=date tray ' <<< "$fallback_polybar_lines") -ne 1 ]]; then
+if [[ $(grep -c ' center=bspwm tray ' <<< "$fallback_polybar_lines") -ne 1 ]]; then
   fail "el fallback no conservó el tray sólo en la primera barra"
 fi
 
 auto_attempts_before=$(grep -c '^polybar monitor=.* center=.* modules=' "$TEST_LOG")
 safe_fallbacks_before=$(grep -c \
-  '^polybar monitor=.* center=.* modules=memory filesystem xkeyboard$' "$TEST_LOG")
+  '^polybar monitor=.* center=.* modules=memory xkeyboard$' "$TEST_LOG")
 export BSPWM_POLYBAR_RIGHT='   '
 "$CONFIG_ROOT/scripts/launch-polybar"
 auto_attempts_after=$(grep -c '^polybar monitor=.* center=.* modules=' "$TEST_LOG")
 safe_fallbacks_after=$(grep -c \
-  '^polybar monitor=.* center=.* modules=memory filesystem xkeyboard$' "$TEST_LOG")
+  '^polybar monitor=.* center=.* modules=memory xkeyboard$' "$TEST_LOG")
 if [[ "$auto_attempts_after" -ne $(( auto_attempts_before + 4 )) ]] ||
    [[ "$safe_fallbacks_after" -ne $(( safe_fallbacks_before + 2 )) ]]; then
   fail "un BSPWM_POLYBAR_RIGHT en blanco no activó la selección automática"
@@ -192,7 +201,7 @@ if "$CONFIG_ROOT/scripts/launch-polybar"; then
   fail "Polybar ocultó el fallo de un override explícito"
 fi
 safe_fallbacks_after=$(grep -c \
-  '^polybar monitor=.* center=.* modules=memory filesystem xkeyboard$' "$TEST_LOG")
+  '^polybar monitor=.* center=.* modules=memory xkeyboard$' "$TEST_LOG")
 if [[ "$safe_fallbacks_after" -ne "$safe_fallbacks_before" ]]; then
   fail "Polybar reemplazó silenciosamente los módulos explícitos"
 fi

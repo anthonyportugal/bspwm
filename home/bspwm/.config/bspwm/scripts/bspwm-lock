@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+# Asegurar entorno puramente X11 para i3lock
+unset WAYLAND_DISPLAY
+
+BSPWM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bspwm"
+if [[ -r "$BSPWM_DIR/local.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.env"
+fi
+
+notify_failure() {
+  local message=$1
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "bspwm" "$message"
+  fi
+  printf 'bspwm-lock: %s\n' "$message" >&2
+  return 1
+}
+
+# Evitar múltiples instancias del bloqueador concurrentes.
+if pgrep -u "$(id -u)" -x i3lock >/dev/null 2>&1 || \
+   pgrep -u "$(id -u)" -x slock >/dev/null 2>&1 || \
+   pgrep -u "$(id -u)" -x betterlockscreen >/dev/null 2>&1; then
+  exit 0
+fi
+
+# Override explícito si el usuario define su propio comando de bloqueo.
+if [[ -n "${BSPWM_LOCK_COMMAND:-}" ]]; then
+  exec bash -lc "$BSPWM_LOCK_COMMAND"
+fi
+
+is_i3lock_color() {
+  if [[ "${BSPWM_TEST_I3LOCK_COLOR:-0}" == 1 ]]; then
+    return 0
+  fi
+  command -v i3lock >/dev/null 2>&1 || return 1
+  local help_text ver_text
+  help_text=$(env -u WAYLAND_DISPLAY i3lock --help 2>&1 || true)
+  ver_text=$(env -u WAYLAND_DISPLAY i3lock -v 2>&1 || true)
+  if grep -Eq -- '--clock|--ring-color|--ringcolor|--time-str|--inside-color' <<< "$help_text" || \
+     grep -Eq 'Raymond Li|Cassandra Fox|\.c\.' <<< "$ver_text"; then
+    return 0
+  fi
+  return 1
+}
+
+if is_i3lock_color; then
+  exec i3lock \
+    --color=1e1e2eff \
+    --clock \
+    --indicator \
+    --time-str="%H:%M" \
+    --time-font="JetBrainsMono Nerd Font" \
+    --time-size=38 \
+    --time-color="cdd6f4ff" \
+    --date-str="%a, %d %b %Y" \
+    --date-font="JetBrainsMono Nerd Font" \
+    --date-size=12 \
+    --date-color="a6adc8ff" \
+    --radius=120 \
+    --ring-width=10 \
+    --inside-color="1e1e2eff" \
+    --ring-color="313244ff" \
+    --keyhl-color="f5c2e7ff" \
+    --bshl-color="f5e0dcff" \
+    --insidever-color="1e1e2eff" \
+    --ringver-color="89b4faff" \
+    --verif-color="89b4faff" \
+    --verif-text="Verificando..." \
+    --insidewrong-color="1e1e2eff" \
+    --ringwrong-color="eba0acff" \
+    --wrong-color="eba0acff" \
+    --wrong-text="Incorrecto" \
+    --keylayout 2 \
+    --layout-color="cdd6f4ff" \
+    --layout-font="JetBrainsMono Nerd Font" \
+    --layout-size=12 \
+    --line-color=00000000 \
+    --separator-color=00000000 \
+    --ignore-empty-password \
+    --pass-media-keys \
+    --pass-screen-keys \
+    --pass-volume-keys \
+    --nofork
+elif command -v i3lock >/dev/null 2>&1; then
+  printf 'bspwm-lock: usando i3lock estándar (instala "i3lock-color" desde AUR para reloj y tema Catppuccin completo)\n' >&2
+  exec i3lock -c 1e1e2e -n
+elif command -v betterlockscreen >/dev/null 2>&1; then
+  exec betterlockscreen --lock
+elif command -v slock >/dev/null 2>&1; then
+  exec slock
+elif command -v loginctl >/dev/null 2>&1 && pgrep -x xss-lock >/dev/null 2>&1; then
+  exec loginctl lock-session
+else
+  notify_failure "No se encontró un bloqueador compatible (instala i3lock-color)"
+  exit 1
+fi
