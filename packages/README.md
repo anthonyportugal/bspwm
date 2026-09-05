@@ -37,6 +37,8 @@ grupo, sin modificar la política global del sistema. `xcape` pertenece a
 `desktop` y permite abrir Rofi al pulsar y soltar Super sin interferir con los
 atajos que mantienen Super presionada. `util-linux` proporciona `flock`, usado
 para impedir lanzamientos concurrentes de Polybar durante el arranque.
+`i3lock-color` (AUR) proporciona el bloqueador con reloj, fecha y anillo
+Catppuccin en paridad completa con MangoWM; se declara en `packages/aur/desktop.txt`.
 
 `external/` documenta fuentes que requerirían otro adaptador; actualmente no
 selecciona ninguna.

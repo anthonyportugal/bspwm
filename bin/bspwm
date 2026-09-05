@@ -384,6 +384,9 @@ resolve_system_packages() {
       done
     fi
     append_manifest_unique EXTERNAL_PACKAGES "$PACKAGES_DIR/external/desktop.txt"
+    if [[ -f "$PACKAGES_DIR/aur/desktop.txt" ]]; then
+      append_manifest_unique AUR_PACKAGES "$PACKAGES_DIR/aur/desktop.txt"
+    fi
   fi
 }
 

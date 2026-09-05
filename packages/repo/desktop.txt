@@ -16,7 +16,10 @@ pipewire-pulse
 playerctl
 polkit-gnome
 polybar
+power-profiles-daemon
+redshift
 rofi
+satty
 thunar
 ttf-jetbrains-mono
 ttf-nerd-fonts-symbols-mono
