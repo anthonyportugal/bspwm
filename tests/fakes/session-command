@@ -79,6 +79,62 @@ case "$command_name" in
         ;;
     esac
     ;;
+  systemctl)
+    rec_active="${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-/tmp}}/recording.active"
+    if [[ "$*" == *"--quiet is-active bspwm-recording.service"* || "$*" == *"is-active bspwm-recording.service"* ]]; then
+      if [[ -f "$rec_active" ]]; then
+        exit 0
+      else
+        exit 1
+      fi
+    elif [[ "$*" == *"stop bspwm-recording.service"* ]]; then
+      rm -f "$rec_active"
+      record "$@"
+      exit 0
+    elif [[ "$*" == *"reset-failed bspwm-recording.service"* ]]; then
+      exit 0
+    elif [[ "$*" == *"show --property=MainPID"* ]]; then
+      printf '9999\n'
+      exit 0
+    else
+      record "$@"
+    fi
+    ;;
+  systemd-run)
+    rec_active="${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-/tmp}}/recording.active"
+    touch "$rec_active"
+    record "$@"
+    ;;
+  slop)
+    printf '800 600 100 200\n'
+    ;;
+  xdotool)
+    printf '1920 1080\n'
+    ;;
+  pactl)
+    case "${1-}" in
+      get-default-sink)
+        printf 'alsa_output.pci.test-sink\n'
+        ;;
+      get-default-source)
+        printf 'alsa_input.pci.test-source\n'
+        ;;
+      load-module)
+        record "$@"
+        printf '42\n'
+        ;;
+      unload-module)
+        record "$@"
+        exit 0
+        ;;
+      *)
+        record "$@"
+        ;;
+    esac
+    ;;
+  polybar-msg)
+    record "$@"
+    ;;
   *)
     record "$@"
     ;;

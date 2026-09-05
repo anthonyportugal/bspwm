@@ -41,16 +41,23 @@ fake_commands=(
   bluetoothctl
   brave
   bspc
+  ffmpeg
   i3lock
   notify-send
+  pactl
   pgrep
   pkill
   playerctl
   playerctld
   polybar
+  polybar-msg
+  slop
   sxhkd
   setxkbmap
+  systemctl
+  systemd-run
   xcape
+  xdotool
   xsetroot
 )
 for command_name in "${fake_commands[@]}"; do
@@ -63,6 +70,8 @@ export BSPWM_TEST_POLYBAR_PIDS="$POLYBAR_PIDS"
 export PATH="$FAKE_BIN:/usr/bin"
 export XDG_CONFIG_HOME="$REPO_ROOT/home/bspwm/.config"
 export XDG_STATE_HOME="$TEST_ROOT/state"
+export XDG_RUNTIME_DIR="$TEST_ROOT/runtime"
+mkdir -p "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
 export BSPWM_DISABLE_DUNST=1
 export BSPWM_DISABLE_PICOM=1
 export BSPWM_DISABLE_POLYBAR=1
@@ -205,5 +214,88 @@ safe_fallbacks_after=$(grep -c \
 if [[ "$safe_fallbacks_after" -ne "$safe_fallbacks_before" ]]; then
   fail "Polybar reemplazó silenciosamente los módulos explícitos"
 fi
+
+# bspwm-recording: estado inicial
+rec_status=$("$CONFIG_ROOT/scripts/bspwm-recording" status)
+[[ "$rec_status" == "stopped" ]] || fail "bspwm-recording debería reportar stopped inicialmente"
+rec_polybar=$("$CONFIG_ROOT/scripts/bspwm-recording" polybar)
+[[ -z "$rec_polybar" ]] || fail "bspwm-recording polybar debería estar vacío inicialmente"
+
+# bspwm-recording: inicio fullscreen y notificación polybar
+"$CONFIG_ROOT/scripts/bspwm-recording" start fullscreen none
+[[ $("$CONFIG_ROOT/scripts/bspwm-recording" status) == "recording" ]] || \
+  fail "bspwm-recording no pasó a estado recording"
+rec_polybar=$("$CONFIG_ROOT/scripts/bspwm-recording" polybar)
+[[ "$rec_polybar" == *"REC"* ]] || fail "bspwm-recording polybar no mostró indicador REC"
+if ! grep -q 'systemd-run.*bspwm-recording.service.*ffmpeg.*-f x11grab' "$TEST_LOG"; then
+  fail "bspwm-recording no lanzó ffmpeg para captura x11grab"
+fi
+if ! grep -q '^polybar-msg action #recording.hook.0$' "$TEST_LOG"; then
+  fail "bspwm-recording no notificó a polybar vía IPC al iniciar"
+fi
+
+# bspwm-recording: detención
+"$CONFIG_ROOT/scripts/bspwm-recording" stop
+[[ $("$CONFIG_ROOT/scripts/bspwm-recording" status) == "stopped" ]] || \
+  fail "bspwm-recording no se detuvo correctamente"
+rec_polybar=$("$CONFIG_ROOT/scripts/bspwm-recording" polybar)
+[[ -z "$rec_polybar" ]] || fail "bspwm-recording polybar no se limpió al detener"
+
+# bspwm-recording: región interactiva
+"$CONFIG_ROOT/scripts/bspwm-recording" start region none
+if ! grep -q 'systemd-run.*bspwm-recording.service.*ffmpeg.*-video_size 800x600' "$TEST_LOG" ||
+   ! grep -Fq '+100,200' "$TEST_LOG"; then
+  fail "bspwm-recording no invocó ffmpeg con la geometría de slop"
+fi
+"$CONFIG_ROOT/scripts/bspwm-recording" stop
+
+# bspwm-recording: audio con micrófono
+"$CONFIG_ROOT/scripts/bspwm-recording" start fullscreen mic
+if ! grep -q 'systemd-run.*bspwm-recording.service.*ffmpeg.*-f pulse -i default' "$TEST_LOG"; then
+  fail "bspwm-recording no configuró la captura de micrófono"
+fi
+"$CONFIG_ROOT/scripts/bspwm-recording" stop
+
+# bspwm-recording: audio de escritorio
+"$CONFIG_ROOT/scripts/bspwm-recording" start fullscreen desktop
+if ! grep -q 'systemd-run.*bspwm-recording.service.*ffmpeg.*-f pulse -i alsa_output.pci.test-sink.monitor' "$TEST_LOG"; then
+  fail "bspwm-recording no configuró el monitor de audio de escritorio"
+fi
+"$CONFIG_ROOT/scripts/bspwm-recording" stop
+
+# bspwm-recording: audio mixto (micrófono + escritorio) y limpieza de módulos
+"$CONFIG_ROOT/scripts/bspwm-recording" start fullscreen both
+if ! grep -q 'systemd-run.*bspwm-recording.service.*ffmpeg.*-f pulse -i bspwm_rec_mix.monitor' "$TEST_LOG"; then
+  fail "bspwm-recording no configuró el sink mixto para audio dual"
+fi
+if ! grep -q 'pactl load-module module-null-sink sink_name=bspwm_rec_mix' "$TEST_LOG"; then
+  fail "bspwm-recording no creó el sink nulo para mezclar audio"
+fi
+"$CONFIG_ROOT/scripts/bspwm-recording" stop
+if ! grep -q 'pactl unload-module 42' "$TEST_LOG"; then
+  fail "bspwm-recording no descargó los módulos de audio al detener"
+fi
+
+# bspwm-recording: alternancia cruzada entre atajos (cualquiera detiene grabación en curso)
+"$CONFIG_ROOT/scripts/bspwm-recording" toggle
+[[ $("$CONFIG_ROOT/scripts/bspwm-recording" status) == "recording" ]] || \
+  fail "toggle no inició grabación"
+"$CONFIG_ROOT/scripts/bspwm-recording" toggle-region
+[[ $("$CONFIG_ROOT/scripts/bspwm-recording" status) == "stopped" ]] || \
+  fail "toggle-region no detuvo la grabación fullscreen activa"
+
+"$CONFIG_ROOT/scripts/bspwm-recording" toggle-region
+[[ $("$CONFIG_ROOT/scripts/bspwm-recording" status) == "recording" ]] || \
+  fail "toggle-region no inició grabación de región"
+"$CONFIG_ROOT/scripts/bspwm-recording" toggle
+[[ $("$CONFIG_ROOT/scripts/bspwm-recording" status) == "stopped" ]] || \
+  fail "toggle no detuvo la grabación de región activa"
+
+"$CONFIG_ROOT/scripts/bspwm-recording" toggle
+[[ $("$CONFIG_ROOT/scripts/bspwm-recording" status) == "recording" ]] || \
+  fail "toggle no inició grabación"
+"$CONFIG_ROOT/scripts/bspwm-recording" menu
+[[ $("$CONFIG_ROOT/scripts/bspwm-recording" status) == "stopped" ]] || \
+  fail "menu no detuvo la grabación activa"
 
 printf 'OK: sesión dinámica y helpers principales validados\n'
