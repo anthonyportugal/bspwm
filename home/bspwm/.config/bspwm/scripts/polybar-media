@@ -2,13 +2,20 @@
 
 set -Eeuo pipefail
 
-command -v playerctl >/dev/null 2>&1 || exit 0
+clear_and_exit() {
+  printf '\n'
+  exit 0
+}
+
+command -v playerctl >/dev/null 2>&1 || clear_and_exit
+
+# Si no hay ningún reproductor activo registrado en MPRIS, limpiar y salir.
+if ! playerctl -l 2>/dev/null | grep -q .; then
+  clear_and_exit
+fi
+
 player="${BSPWM_PLAYER:-playerctld}"
 status=$(playerctl --player="$player" status 2>/dev/null || true)
-[[ -n "$status" ]] || exit 0
-
-metadata=$(playerctl --player="$player" metadata --format '{{artist}} — {{title}}' 2>/dev/null || true)
-metadata=$(printf '%s' "$metadata" | cut -c 1-52 | sed 's/%/%%/g')
 
 case "$status" in
   Playing)
@@ -18,12 +25,15 @@ case "$status" in
     icon=''
     ;;
   *)
-    icon=''
+    clear_and_exit
     ;;
 esac
 
-if [[ -n "$metadata" && "$metadata" != ' — ' ]]; then
-  printf '%%{T2}%s%%{T-} %s\n' "$icon" "$metadata"
-else
-  printf '%%{T2}%s%%{T-}\n' "$icon"
+metadata=$(playerctl --player="$player" metadata --format '{{artist}} — {{title}}' 2>/dev/null || true)
+[[ -n "$metadata" && "$metadata" != ' — ' ]] || clear_and_exit
+
+if (( ${#metadata} > 24 )); then
+  metadata="${metadata:0:23}…"
 fi
+metadata=$(sed 's/%/%%/g' <<< "$metadata")
+printf '%%{T2}%s%%{T-} %s\n' "$icon" "$metadata"

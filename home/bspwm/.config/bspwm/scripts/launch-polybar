@@ -12,7 +12,7 @@ fi
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/bspwm/polybar"
 POLYBAR_CONFIG="$POLYBAR_DIR/config.ini"
-POLYBAR_SAFE_RIGHT='memory filesystem xkeyboard'
+POLYBAR_SAFE_RIGHT='memory xkeyboard'
 LAUNCHER_LOG="$STATE_DIR/launcher.log"
 
 mkdir -p -- "$STATE_DIR"
@@ -41,7 +41,7 @@ if [[ -n "$requested_right" ]]; then
   BSPWM_POLYBAR_RIGHT=$requested_right
   module_source=explicit
 else
-  detected_right_modules=(pulseaudio memory filesystem)
+  detected_right_modules=(pulseaudio memory)
 
   has_wired=0
   has_wireless=0
@@ -76,7 +76,7 @@ else
     detected_right_modules+=(battery)
   fi
 
-  detected_right_modules+=(xkeyboard)
+  detected_right_modules+=(xkeyboard date power)
   BSPWM_POLYBAR_RIGHT="${detected_right_modules[*]}"
   module_source=automatic
 fi
@@ -129,14 +129,14 @@ declare -a launched_logs=()
 
 for monitor_index in "${!monitors[@]}"; do
   monitor=${monitors[$monitor_index]}
-  center_modules='date'
+  center_modules='bspwm'
   right_selection=$resolved_right_modules
 
   # The X11 tray protocol permits one tray owner. By default keep it on the
-  # first bar next to the centered date. An explicit right-side tray keeps its
+  # first bar next to the centered workspaces. An explicit right-side tray keeps its
   # literal placement and is not duplicated here.
   if (( monitor_index == 0 && right_contains_tray == 0 )); then
-    center_modules='date tray'
+    center_modules='bspwm tray'
   fi
 
   if [[ -n "$monitor" ]]; then

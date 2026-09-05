@@ -68,7 +68,7 @@ fi
 if (( ${#monitors[@]} == 0 )); then
   printf 'bspwmrc: no se detectaron monitores administrados por bspwm\n' >&2
 else
-  read -r -a workspace_names <<< "${BSPWM_WORKSPACES:-       }"
+  read -r -a workspace_names <<< "${BSPWM_WORKSPACES:-1 2 3 4 5 6 7 8 9}"
 
   # Ensure every monitor receives at least one uniquely named desktop.
   while (( ${#workspace_names[@]} < ${#monitors[@]} )); do
@@ -111,6 +111,10 @@ bspc config paddingless_monocle true
 bspc config single_monocle false
 bspc config focus_follows_pointer true
 bspc config presel_feedback true
+bspc config pointer_modifier mod4
+bspc config pointer_action1 move
+bspc config pointer_action2 resize_side
+bspc config pointer_action3 resize_corner
 
 bspc wm --adopt-orphans
 bspc rule -r '*'

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+runtime_dir="${XDG_RUNTIME_DIR:-/tmp}/bspwm-$UID"
+mkdir -p "$runtime_dir"
+state_file="$runtime_dir/idle-inhibit.state"
+
+is_inhibited() {
+  [[ -f "$state_file" ]] && [[ "$(<"$state_file")" == "on" ]]
+}
+
+toggle() {
+  if is_inhibited; then
+    xset s on +dpms 2>/dev/null || true
+    rm -f "$state_file"
+    if command -v notify-send >/dev/null 2>&1; then
+      notify-send -h string:x-dunst-stack-tag:bspwm-idle "Reposo Automático" "󰾪 Modo ahorro activo"
+    fi
+  else
+    xset s off -dpms 2>/dev/null || true
+    printf 'on\n' > "$state_file"
+    if command -v notify-send >/dev/null 2>&1; then
+      notify-send -h string:x-dunst-stack-tag:bspwm-idle "Inhibidor de Reposo" "󰅶 Modo presentación activo (pantalla siempre encendida)"
+    fi
+  fi
+}
+
+polybar_status() {
+  if is_inhibited; then
+    printf '%%{F#F38BA8}%%{T2}󰅶%%{T-}%%{F-}\n'
+  else
+    printf '%%{F#6C7086}%%{T2}󰾪%%{T-}%%{F-}\n'
+  fi
+}
+
+case "${1:-toggle}" in
+  toggle)
+    toggle
+    ;;
+  status|polybar)
+    polybar_status
+    ;;
+  *)
+    printf 'Uso: %s toggle|status|polybar\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac
