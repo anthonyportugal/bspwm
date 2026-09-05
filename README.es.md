@@ -4,6 +4,10 @@
 
 Sesión de escritorio X11 autónoma, pública y minimalista basada en **BSPWM** (Binary Space Partitioning Window Manager) con el tema Catppuccin Mocha. Funciona de manera 100% independiente o compuesta con el ecosistema principal de dotfiles modulares.
 
+<p align="center">
+  <img src="assets/screenshot.webp" alt="Vista previa de BSPWM Desktop" width="100%">
+</p>
+
 > [!NOTE]
 > **Trabajo en progreso:** Este repositorio se encuentra en desarrollo y mantenimiento activo. Ofrece una experiencia de escritorio X11 independiente y se integra con los dotfiles base en [anthonyportugal/dotfiles](https://github.com/anthonyportugal/dotfiles) (rama `refactor/modular-dotfiles`). *(Nota: Este repositorio pasará a llamarse `dotfiles-bspwm` al finalizar la migración).*
 
