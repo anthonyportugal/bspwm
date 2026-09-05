@@ -111,8 +111,8 @@ Aunque este repositorio funciona de forma **100% independiente**, se integra lim
 | `Print` / `Super + Print` | Captura de pantalla completa / región interactiva |
 | `Ctrl + Print` | Capturar ventana enfocada |
 | `Super + {C, Shift+C}` | Cerrar / Matar ventana enfocada |
-| `Ctrl + Shift + R` | Reiniciar sesión de BSPWM |
-| `Ctrl + Shift + Q` | Cerrar sesión de BSPWM |
+| `Super + Escape` | Reiniciar sesión de BSPWM |
+| `Super + Shift + Escape` | Cerrar sesión de BSPWM |
 
 ---
 

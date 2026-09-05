@@ -63,11 +63,11 @@ super + c
 super + shift + c
 	bspc node -k
 
-super + shift + q
-	bspc quit
+super + Escape
+	bspc wm -r; pkill -USR1 -u "$(id -u)" -x sxhkd
 
-super + shift + r
-	bspc wm -r
+super + shift + Escape
+	bspc quit
 
 super + t
 	bspc desktop -l next
@@ -101,6 +101,3 @@ super + control + {Left,Right,Up,Down}
 
 super + alt + {Left,Right,Up,Down}
 	bspc node -z {left 20 0,right -20 0,top 0 20,bottom 0 -20}
-
-super + Escape
-	pkill -USR1 -u "$(id -u)" -x sxhkd

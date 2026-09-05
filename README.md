@@ -111,8 +111,8 @@ While this repository operates **100% standalone**, it seamlessly integrates wit
 | `Print` / `Super + Print` | Fullscreen / Interactive region screenshot |
 | `Ctrl + Print` | Capture focused window screenshot |
 | `Super + {C, Shift+C}` | Close / Kill focused window |
-| `Ctrl + Shift + R` | Restart BSPWM session |
-| `Ctrl + Shift + Q` | Quit BSPWM |
+| `Super + Escape` | Restart BSPWM session |
+| `Super + Shift + Escape` | Quit BSPWM |
 
 ---
 
