@@ -1,0 +1,382 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+BSPWM_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/bspwm"
+ROFI_DIR="$BSPWM_DIR/themes/catppuccin/rofi"
+ROFI_LAUNCHER_THEME="$ROFI_DIR/launcher.rasi"
+UNIT=bspwm-recording.service
+
+if [[ -r "$BSPWM_DIR/local.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BSPWM_DIR/local.env"
+fi
+
+runtime_dir="${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/bspwm}"
+mkdir -p -- "$runtime_dir"
+
+is_active() {
+  if systemctl --user --quiet is-active "$UNIT" 2>/dev/null; then
+    return 0
+  fi
+  local pid_file="$runtime_dir/recording.pid"
+  if [[ -r "$pid_file" ]]; then
+    local pid
+    pid=$(<"$pid_file")
+    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  if pgrep -u "$UID" -f "ffmpeg.*x11grab" >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+notify_polybar() {
+  if command -v polybar-msg >/dev/null 2>&1; then
+    polybar-msg action "#recording.hook.0" 2>/dev/null || true
+  fi
+}
+
+notify_msg() {
+  local urgency=$1
+  local summary=$2
+  local body=${3-}
+
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send -u "$urgency" -a "bspwm" "$summary" "$body"
+  else
+    printf '%s: %s\n' "$summary" "$body" >&2
+  fi
+}
+
+recordings_dir() {
+  local videos_dir
+
+  if command -v xdg-user-dir >/dev/null 2>&1; then
+    videos_dir=$(xdg-user-dir VIDEOS 2>/dev/null || true)
+  else
+    videos_dir="$HOME/Videos"
+  fi
+  [[ -n "$videos_dir" ]] || videos_dir="$HOME/Videos"
+  printf '%s\n' "$videos_dir/Recordings"
+}
+
+cleanup_audio() {
+  local modules_file="$runtime_dir/recording.audio_modules"
+  if [[ -r "$modules_file" ]]; then
+    while read -r mod_id; do
+      if [[ "$mod_id" =~ ^[0-9]+$ ]] && command -v pactl >/dev/null 2>&1; then
+        pactl unload-module "$mod_id" 2>/dev/null || true
+      fi
+    done < "$modules_file"
+    rm -f -- "$modules_file"
+  fi
+}
+
+start_recording() {
+  local mode=${1:-fullscreen}
+  local audio=${2:-none}
+  local destination_dir destination destination_file pid_file
+  local -a ffmpeg_cmd=(ffmpeg -y)
+
+  if is_active; then
+    stop_recording
+    return 0
+  fi
+
+  command -v ffmpeg >/dev/null 2>&1 || {
+    notify_msg critical "Grabación fallida" "ffmpeg no está instalado."
+    return 1
+  }
+
+  cleanup_audio
+
+  local -a audio_args=()
+  local modules_file="$runtime_dir/recording.audio_modules"
+
+  case "$audio" in
+    mic)
+      audio_args=(-f pulse -i default -c:a aac)
+      ;;
+    desktop)
+      local default_sink=""
+      if command -v pactl >/dev/null 2>&1; then
+        default_sink=$(pactl get-default-sink 2>/dev/null || true)
+      fi
+      if [[ -n "$default_sink" ]]; then
+        audio_args=(-f pulse -i "${default_sink}.monitor" -c:a aac)
+      else
+        audio_args=(-f pulse -i default -c:a aac)
+      fi
+      ;;
+    both)
+      if command -v pactl >/dev/null 2>&1; then
+        local null_id="" loop1_id="" loop2_id="" def_sink="" def_source=""
+        def_sink=$(pactl get-default-sink 2>/dev/null || true)
+        def_source=$(pactl get-default-source 2>/dev/null || true)
+        null_id=$(pactl load-module module-null-sink sink_name=bspwm_rec_mix sink_properties=device.description="BSPWM-Record-Mix" 2>/dev/null || true)
+        if [[ -n "$null_id" ]]; then
+          printf '%s\n' "$null_id" > "$modules_file"
+          if [[ -n "$def_sink" ]]; then
+            loop1_id=$(pactl load-module module-loopback source="${def_sink}.monitor" sink=bspwm_rec_mix latency_msec=20 2>/dev/null || true)
+            [[ -n "$loop1_id" ]] && printf '%s\n' "$loop1_id" >> "$modules_file"
+          fi
+          if [[ -n "$def_source" ]]; then
+            loop2_id=$(pactl load-module module-loopback source="$def_source" sink=bspwm_rec_mix latency_msec=20 2>/dev/null || true)
+            [[ -n "$loop2_id" ]] && printf '%s\n' "$loop2_id" >> "$modules_file"
+          fi
+          audio_args=(-f pulse -i "bspwm_rec_mix.monitor" -c:a aac)
+        else
+          audio_args=(-f pulse -i default -c:a aac)
+        fi
+      else
+        audio_args=(-f pulse -i default -c:a aac)
+      fi
+      ;;
+    none|"")
+      ;;
+  esac
+
+  local -a video_args=()
+  local display_num="${DISPLAY:-:0.0}"
+
+  if [[ "$mode" == region ]]; then
+    command -v slop >/dev/null 2>&1 || {
+      notify_msg critical "Grabación fallida" "slop no está instalado."
+      return 1
+    }
+    local slop_out
+    if ! slop_out=$(slop -f "%w %h %x %y" 2>/dev/null); then
+      return 0
+    fi
+    [[ -n "$slop_out" ]] || return 0
+    local reg_w reg_h reg_x reg_y
+    read -r reg_w reg_h reg_x reg_y <<< "$slop_out"
+
+    # H.264 / yuv420p requiere que las dimensiones sean pares
+    (( reg_w = (reg_w / 2) * 2 ))
+    (( reg_h = (reg_h / 2) * 2 ))
+
+    if (( reg_w < 2 || reg_h < 2 )); then
+      notify_msg normal "Grabación cancelada" "El área seleccionada es demasiado pequeña."
+      return 0
+    fi
+
+    video_args=(
+      -f x11grab
+      -draw_mouse 1
+      -framerate 60
+      -video_size "${reg_w}x${reg_h}"
+      -i "${display_num}+${reg_x},${reg_y}"
+    )
+  else
+    video_args=(
+      -f x11grab
+      -draw_mouse 1
+      -framerate 60
+      -i "${display_num}+0,0"
+    )
+  fi
+
+  destination_dir=$(recordings_dir)
+  mkdir -p -- "$destination_dir"
+  destination="$destination_dir/$(date +'%Y-%m-%d_%H-%M-%S').mp4"
+
+  destination_file="$runtime_dir/recording.destination"
+  printf '%s\n' "$destination" > "$destination_file"
+
+  ffmpeg_cmd+=(
+    "${video_args[@]}"
+    "${audio_args[@]}"
+    -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2"
+    -c:v libx264
+    -preset veryfast
+    -pix_fmt yuv420p
+    "$destination"
+  )
+
+  pid_file="$runtime_dir/recording.pid"
+  systemctl --user reset-failed "$UNIT" >/dev/null 2>&1 || true
+  local -a run_cmd=(systemd-run --user --quiet --collect --unit="$UNIT" --property=KillSignal=SIGINT)
+  [[ -n "${DISPLAY:-}" ]] && run_cmd+=(--setenv=DISPLAY="$DISPLAY")
+  [[ -n "${XAUTHORITY:-}" ]] && run_cmd+=(--setenv=XAUTHORITY="$XAUTHORITY")
+  run_cmd+=(-- "${ffmpeg_cmd[@]}")
+
+  if "${run_cmd[@]}" 2>/dev/null; then
+    local unit_pid=""
+    unit_pid=$(systemctl --user show --property=MainPID --value "$UNIT" 2>/dev/null || true)
+    if [[ "$unit_pid" =~ ^[0-9]+$ && "$unit_pid" -gt 0 ]]; then
+      printf '%s\n' "$unit_pid" > "$pid_file"
+    fi
+  else
+    "${ffmpeg_cmd[@]}" >/dev/null 2>&1 &
+    printf '%s\n' "$!" > "$pid_file"
+  fi
+
+  notify_polybar
+
+  local audio_note=""
+  case "$audio" in
+    mic) audio_note=" (con micrófono)" ;;
+    desktop) audio_note=" (con audio del sistema)" ;;
+    both) audio_note=" (con micrófono y audio del sistema)" ;;
+  esac
+  notify_msg low "Grabación iniciada" "$destination$audio_note"
+}
+
+stop_recording() {
+  local destination_file="$runtime_dir/recording.destination"
+  local pid_file="$runtime_dir/recording.pid"
+
+  cleanup_audio
+
+  if ! is_active; then
+    rm -f -- "$destination_file" "$pid_file"
+    notify_polybar
+    notify_msg low "Grabación inactiva"
+    return 0
+  fi
+
+  if systemctl --user --quiet is-active "$UNIT" 2>/dev/null; then
+    systemctl --user stop "$UNIT" 2>/dev/null || true
+  fi
+
+  if [[ -r "$pid_file" ]]; then
+    local pid
+    pid=$(<"$pid_file")
+    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+      kill -INT "$pid" 2>/dev/null || true
+    fi
+    rm -f -- "$pid_file"
+  fi
+
+  if pgrep -u "$UID" -f "ffmpeg.*x11grab" >/dev/null 2>&1; then
+    pkill -INT -u "$UID" -f "ffmpeg.*x11grab" 2>/dev/null || true
+  fi
+
+  notify_polybar
+
+  local saved_msg="Video guardado correctamente."
+  if [[ -r "$destination_file" ]]; then
+    saved_msg="Guardado en: $(<"$destination_file")"
+    rm -f -- "$destination_file"
+  fi
+  notify_msg low "Grabación guardada" "$saved_msg"
+}
+
+polybar_status() {
+  if is_active; then
+    printf '󰻃 REC\n'
+  else
+    printf '\n'
+  fi
+}
+
+menu() {
+  if is_active; then
+    stop_recording
+    return 0
+  fi
+  command -v rofi >/dev/null 2>&1 || return 1
+  local options=(
+    "⏺️   Pantalla completa (Mudo)"
+    "🎙️   Pantalla completa + Micrófono"
+    "🔊   Pantalla completa + Audio PC"
+    "🎙️🔊 Pantalla completa + Micrófono y Audio PC"
+    "✂️   Región de pantalla (Mudo)"
+    "🎙️   Región de pantalla + Micrófono"
+    "🔊   Región de pantalla + Audio PC"
+    "🎙️🔊 Región de pantalla + Micrófono y Audio PC"
+  )
+  local choice
+  choice=$(printf '%s\n' "${options[@]}" | \
+    rofi -dmenu -i \
+      -p "Grabador ❯" \
+      -mesg "Opciones de Grabación de Pantalla (FFmpeg + Catppuccin)" \
+      -theme "$ROFI_LAUNCHER_THEME" \
+      -theme-str 'configuration { show-icons: false; } window { width: 520px; } listview { lines: 8; } element-icon { enabled: false; }' || true)
+
+  case "$choice" in
+    *"Pantalla completa + Micrófono y Audio PC"*)
+      start_recording fullscreen both
+      ;;
+    *"Pantalla completa + Micrófono"*)
+      start_recording fullscreen mic
+      ;;
+    *"Pantalla completa + Audio PC"*)
+      start_recording fullscreen desktop
+      ;;
+    *"Pantalla completa (Mudo)"*|*"Pantalla completa"*)
+      start_recording fullscreen none
+      ;;
+    *"Región de pantalla + Micrófono y Audio PC"*)
+      start_recording region both
+      ;;
+    *"Región de pantalla + Micrófono"*)
+      start_recording region mic
+      ;;
+    *"Región de pantalla + Audio PC"*)
+      start_recording region desktop
+      ;;
+    *"Región de pantalla (Mudo)"*|*"Región de pantalla"*)
+      start_recording region none
+      ;;
+  esac
+}
+
+case "${1:-toggle}" in
+  start)
+    if is_active; then
+      stop_recording
+    elif [[ "${2-}" == "region" ]]; then
+      start_recording region "${3:-none}"
+    elif [[ "${2-}" == "fullscreen" ]]; then
+      start_recording fullscreen "${3:-none}"
+    else
+      start_recording fullscreen "${2:-none}"
+    fi
+    ;;
+  start-region)
+    if is_active; then
+      stop_recording
+    else
+      start_recording region "${2:-none}"
+    fi
+    ;;
+  stop)
+    stop_recording
+    ;;
+  toggle)
+    if is_active; then
+      stop_recording
+    elif [[ "${2-}" == "region" ]]; then
+      start_recording region "${3:-none}"
+    elif [[ "${2-}" == "fullscreen" ]]; then
+      start_recording fullscreen "${3:-none}"
+    else
+      start_recording fullscreen "${2:-none}"
+    fi
+    ;;
+  toggle-region)
+    if is_active; then
+      stop_recording
+    else
+      start_recording region "${2:-none}"
+    fi
+    ;;
+  status)
+    if is_active; then printf 'recording\n'; else printf 'stopped\n'; fi
+    ;;
+  polybar)
+    polybar_status
+    ;;
+  menu)
+    menu
+    ;;
+  *)
+    printf 'Uso: %s start|start-region|stop|toggle|toggle-region|status|polybar|menu\n' "${0##*/}" >&2
+    exit 2
+    ;;
+esac
